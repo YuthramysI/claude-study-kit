@@ -78,6 +78,29 @@ export function barras(dias: readonly { etiqueta: string; valor: number; esHoy: 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ancho} ${alto}" width="${ancho}" height="${alto}">${cuerpo}</svg>`
 }
 
+/** Colores de los temas, en orden: los mismos en el panel y en el PDF. */
+export const COLORES_TEMA = ['#E8553F', '#3B82C4', '#2FA67A', '#F6B04A', '#9B6BD3', '#E86FA6', '#5BB8C8', '#8A8F98']
+
+/** Barras horizontales del tiempo por tema: nombre, barra y horas. */
+export function barrasTemas(temas: readonly { tema: string; minutos: number }[], formato: (min: number) => string): string {
+  const ancho = 320
+  const fila = 24
+  const etiqueta = 96
+  const valor = 64
+  const max = Math.max(1, ...temas.map(t => t.minutos))
+  const alto = Math.max(fila, temas.length * fila)
+  const cuerpo = temas.map((t, i) => {
+    const y = i * fila
+    const w = Math.max(3, (t.minutos / max) * (ancho - etiqueta - valor - 8))
+    const nombre = t.tema.length > 14 ? `${t.tema.slice(0, 13)}…` : t.tema
+    const color = COLORES_TEMA[i % COLORES_TEMA.length] ?? GRIS
+    return `<text x="0" y="${y + 16}" font-family="${FUENTE}" font-size="12" fill="${GRIS}">${esc(nombre)}<title>${esc(t.tema)}</title></text>` +
+      `<rect x="${etiqueta}" y="${y + 5}" width="${r1(w)}" height="14" rx="4" fill="${color}"/>` +
+      `<text x="${r1(etiqueta + w + 6)}" y="${y + 16}" font-family="${FUENTE}" font-size="12" font-weight="600" fill="${color}">${esc(formato(t.minutos))}</text>`
+  }).join('')
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ancho} ${alto}" width="${ancho}" height="${alto}">${cuerpo}</svg>`
+}
+
 const VERDES = ['#9BE9A8', '#40C463', '#30A14E', '#216E39']
 
 /** Puntuación de un día para el mapa de calor: minutos de enfoque + tarjetas. */

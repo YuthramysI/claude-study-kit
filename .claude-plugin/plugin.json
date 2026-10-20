@@ -1,6 +1,6 @@
 {
   "name": "estudio",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Estudia dentro de Claude Code: Pomodoro, tarjetas con repaso espaciado y cuadernos de fuentes al estilo NotebookLM (preguntas con citas, guía, quiz y resumen en audio).",
   "author": {
     "name": "Yuthramys Ibarra",
@@ -68,6 +68,18 @@
       "title": "Iniciar solo el siguiente pomodoro",
       "description": "Al terminar el descanso, empieza el siguiente enfoque sin esperar a que lo inicies.",
       "default": false
+    },
+    "nuevasPorDia": {
+      "type": "number",
+      "title": "Tarjetas nuevas por día",
+      "description": "Cuántas tarjetas nuevas entran al repaso cada día (las demás esperan su turno). 0 = ninguna nueva.",
+      "default": 20
+    },
+    "retencion": {
+      "type": "number",
+      "title": "Retención deseada (%)",
+      "description": "Probabilidad de recordar una tarjeta el día que vence (FSRS), de 70 a 97. Más alta = más repasos.",
+      "default": 90
     },
     "recordatorio": {
       "type": "boolean",

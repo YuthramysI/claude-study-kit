@@ -43,6 +43,9 @@ export type Host = {
     tarjetas: Celda<Tarjeta[]>
     ahora: Celda<number>
     stats: Celda<Stats>
+    tareas: Celda<string[]>
+    editandoTarea: Celda<boolean>
+    mapa: Celda<string | null>
   }
   status: (text: string | undefined) => void
   toast: (text: string, timeoutMs?: number) => void
@@ -56,4 +59,6 @@ export type Host = {
   run: (argv: readonly string[], init?: ProcessRunInit) => Promise<ProcessRunResult>
   play: (asset: string, gain: number) => Promise<void>
   speak: (text: string) => Promise<unknown>
+  /** Una respuesta corta del modelo pequeño; undefined si no contesta. */
+  completar: (pedido: { system: string; prompt: string; maxTokens: number }) => Promise<string | undefined>
 }

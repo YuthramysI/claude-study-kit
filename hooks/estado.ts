@@ -14,6 +14,10 @@ export type Config = {
   volumen: number
   autoIniciar: boolean
   recordatorio: boolean
+  /** tarjetas nuevas que entran al repaso cada día */
+  nuevasPorDia: number
+  /** retención deseada de FSRS (0,70-0,97) */
+  retencion: number
 }
 
 const numero = (v: unknown, defecto: number, min: number, max: number) =>
@@ -32,5 +36,7 @@ export function config(options: PluginOptions): Config {
     volumen: numero(options.volumen, 80, 0, 100),
     autoIniciar: options.autoIniciar === true,
     recordatorio: options.recordatorio !== false,
+    nuevasPorDia: Math.round(numero(options.nuevasPorDia, 20, 0, 1000)),
+    retencion: numero(options.retencion, 90, 70, 97) / 100,
   }
 }

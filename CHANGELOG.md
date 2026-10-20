@@ -4,6 +4,16 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 
 ## [Sin publicar]
 
+## [1.2.0] - 2026-10-20
+
+### Añadido
+- **FSRS** sustituye a SM-2 (parámetros por defecto de FSRS-4.5): cada tarjeta guarda su estabilidad y su dificultad, y el repaso cae cuando la probabilidad de recordarla baja a la retención deseada (opción `retencion`, 90 % por defecto). Las tarjetas de SM-2 se convierten solas.
+- **Límite diario de tarjetas nuevas** (opción `nuevasPorDia`, 20 por defecto); el panel, `/anki` y el PDF muestran las que esperan turno.
+- Repaso: **editar** y **borrar** la tarjeta actual, **deshacer** la última calificación, y **modo escribir**: Claude (modelo pequeño) corrige tu respuesta y sugiere la nota; sin modelo, compara palabras clave.
+- **Tarea en cada pomodoro** (`/pomodoro 50 Química`, `/pomodoro tarea …`, o desde el panel con las recientes a un clic); por defecto, el cuaderno activo. Las estadísticas, `/estudio stats` y la portada del PDF muestran el **tiempo por tema**.
+- **Fuentes nuevas**: el plugin revisa `fuentes/` cada 30 s, avisa de lo nuevo y ofrece **✨ Resumir y crear tarjetas**. Nueva skill `/estudio:resumir` y herramienta `marcar_fuentes_resumidas`; `cuaderno_activo` incluye `fuentesNuevas`.
+- **Mapa mental**: skill `/estudio:mapa`, pestaña **🧠 Mapa** (SVG en VS Code y escritorio; árbol de texto en la terminal) y diagrama en el PDF.
+
 ## [1.1.0] - 2026-10-20
 
 ### Añadido

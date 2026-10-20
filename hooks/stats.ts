@@ -11,14 +11,36 @@ const activo = (d: DiaStats | undefined) => d !== undefined && (d.pomodoros > 0 
 /** Suma `cambio` al día `dia` y recorta a los últimos DIAS_GUARDADOS días. */
 export function registrar(stats: Stats, dia: string, cambio: Partial<DiaStats>): Stats {
   const previo = stats[dia] ?? VACIO
+  // un cambio negativo (deshacer) nunca deja un contador por debajo de cero
   const nuevo: DiaStats = {
-    pomodoros: previo.pomodoros + (cambio.pomodoros ?? 0),
-    minutos: previo.minutos + (cambio.minutos ?? 0),
-    repasos: previo.repasos + (cambio.repasos ?? 0),
-    aciertos: previo.aciertos + (cambio.aciertos ?? 0),
+    pomodoros: Math.max(0, previo.pomodoros + (cambio.pomodoros ?? 0)),
+    minutos: Math.max(0, previo.minutos + (cambio.minutos ?? 0)),
+    repasos: Math.max(0, previo.repasos + (cambio.repasos ?? 0)),
+    aciertos: Math.max(0, previo.aciertos + (cambio.aciertos ?? 0)),
+    ...sumarTemas(previo.temas, cambio.temas),
   }
   const dias = Object.keys({ ...stats, [dia]: nuevo }).sort().slice(-DIAS_GUARDADOS)
   return Object.fromEntries(dias.map(d => [d, d === dia ? nuevo : (stats[d] ?? VACIO)]))
+}
+
+function sumarTemas(a: Record<string, number> | undefined, b: Record<string, number> | undefined): { temas?: Record<string, number> } {
+  if (a === undefined && b === undefined) return {}
+  const temas: Record<string, number> = { ...(a ?? {}) }
+  for (const [tema, min] of Object.entries(b ?? {})) temas[tema] = Math.max(0, (temas[tema] ?? 0) + min)
+  return { temas }
+}
+
+/** Minutos de enfoque por tema desde `desde` (incluido), de más a menos. */
+export function temas(stats: Stats, desde?: string): { tema: string; minutos: number }[] {
+  const suma: Record<string, number> = {}
+  for (const [dia, d] of Object.entries(stats)) {
+    if (desde !== undefined && dia < desde) continue
+    for (const [tema, min] of Object.entries(d.temas ?? {})) suma[tema] = (suma[tema] ?? 0) + min
+  }
+  return Object.entries(suma)
+    .filter(([, min]) => min > 0)
+    .map(([tema, minutos]) => ({ tema, minutos }))
+    .sort((x, y) => y.minutos - x.minutos || x.tema.localeCompare(y.tema))
 }
 
 /** Días seguidos con actividad, contando hacia atrás desde hoy (o desde ayer si hoy aún no hay nada). */
@@ -115,7 +137,14 @@ export function sanear(v: unknown): Stats {
   for (const [dia, d] of Object.entries(v as Record<string, unknown>)) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dia) || typeof d !== 'object' || d === null) continue
     const o = d as Record<string, unknown>
-    stats[dia] = { pomodoros: num(o.pomodoros), minutos: num(o.minutos), repasos: num(o.repasos), aciertos: num(o.aciertos) }
+    const temas: Record<string, number> = {}
+    if (typeof o.temas === 'object' && o.temas !== null) {
+      for (const [tema, min] of Object.entries(o.temas as Record<string, unknown>)) if (num(min) > 0) temas[tema.slice(0, 60)] = num(min)
+    }
+    stats[dia] = {
+      pomodoros: num(o.pomodoros), minutos: num(o.minutos), repasos: num(o.repasos), aciertos: num(o.aciertos),
+      ...(Object.keys(temas).length > 0 ? { temas } : {}),
+    }
   }
   return stats
 }

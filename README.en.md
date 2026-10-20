@@ -15,9 +15,10 @@ A plugin that turns Claude Code into your study space: **Pomodoro timer**, **spa
 
 | | |
 |---|---|
-| 🍅 **Pomodoro** | Timer in the status line and in a side pane, an alarm (bell ×3) and a notification at the end of each phase, a long break every 4 rounds. A running timer survives restarting Claude Code. |
-| 🃏 **SM-2 flashcards** | Claude writes cards from your sources; you review them in the pane (`m` reveals the answer, `1`–`4` grades it) on a SuperMemo-2 schedule. |
-| 📚 **Notebooks** | One folder per subject with your PDFs, notes or photos. Claude answers **only from your sources**, cites `[file, p. X]` and says when something isn't in them. |
+| 🍅 **Pomodoro** | Timer in the status line and in a side pane, an alarm (bell ×3) and a notification at the end of each phase, a long break every 4 rounds. Each pomodoro has a task, and stats show time per topic. A running timer survives restarting Claude Code. |
+| 🃏 **FSRS flashcards** | Claude writes cards from your sources; you review them in the pane on an **FSRS** schedule (the modern Anki algorithm) with a **daily new-card limit**. Type your answer and Claude grades it; edit, delete or undo the last grade from the pane. |
+| 📚 **Notebooks** | One folder per subject with your PDFs, notes or photos. Claude answers **only from your sources**, cites `[file, p. X]` and says when something isn't in them. New files are detected and Claude offers to summarize them and make cards. |
+| 🧠 **Mind maps** | `/estudio:mapa`: Claude maps the concepts; the plugin draws the map in the pane and in the PDF. |
 | 📝 **Guide, quiz, audio** | A study guide with glossary and FAQ, an interactive quiz (missed questions become flashcards) and a podcast-style summary read aloud. |
 | 📊 **Stats** | Daily streak, pomodoros and focus hours, accuracy, 7- and 28-day charts, and new, learning and mature cards. |
 | 📄 **Review PDF** | `/estudio pdf`: a printable document with a stats cover, every card, the guides and quizzes Claude wrote, and cut-out double-sided flashcards. |
@@ -49,7 +50,14 @@ or from a shell: `claude plugin install estudio --marketplace YuthramysI/claude-
 | `/estudio:guia` | Study guide → `salidas/` |
 | `/estudio:quiz [n]` | Interactive multiple-choice quiz |
 | `/estudio:audio [min]` | Spoken summary |
+| `/estudio:resumir [files]` | Summarize new sources and make their cards |
+| `/estudio:mapa [topic]` | Mind map, drawn in the 🧠 Mapa tab and the PDF |
+| `/pomodoro 50 Chemistry` | A 50-minute focus session on a task |
 | `/estudio pdf` | Your whole review as a printable PDF |
+
+## 🧠 Mind maps
+
+![Mind map drawn by the plugin](docs/mapa.png)
 
 ## 📄 Review PDF
 
@@ -77,7 +85,7 @@ The alarm uses `paplay` and the voice uses `spd-say`: `sudo apt install speech-d
 ```bash
 claude --plugin-dir .       # run Claude Code with this folder's plugin loaded
 claude plugin validate .
-claude plugin test .        # 51 tests
+claude plugin test .        # 71 tests
 ```
 
 ## 📄 License

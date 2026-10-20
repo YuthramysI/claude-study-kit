@@ -1,6 +1,7 @@
 // El documento de repaso: un HTML para imprimir que Chrome convierte en PDF.
 import type { InfoCuaderno, Stats, Tarjeta } from '../types'
 import * as g from './graficos'
+import { leerMapa, mapaSvg } from './mapa'
 import { aHtml, escapar } from './markdown'
 import { pendientes, sumarDias } from './srs'
 import * as stats from './stats'
@@ -13,6 +14,8 @@ export type DatosRepaso = {
   stats: Stats
   /** Lo que Claude generó en salidas/ (Markdown). */
   documentos: readonly { archivo: string; markdown: string }[]
+  /** límite diario de tarjetas nuevas (la cola de hoy, como en el panel) */
+  limiteNuevas?: number
 }
 
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
@@ -28,7 +31,7 @@ export function fechaLarga(dia: string): string {
 export function tituloDocumento(archivo: string): string {
   const base = archivo.replace(/\.(md|markdown|txt)$/i, '')
   const [tipo = base, ...resto] = base.split('-')
-  const nombres: Record<string, string> = { guia: 'Guía de estudio', quiz: 'Quiz', audio: 'Guion de audio', faq: 'Preguntas frecuentes', resumen: 'Resumen' }
+  const nombres: Record<string, string> = { guia: 'Guía de estudio', quiz: 'Quiz', audio: 'Guion de audio', faq: 'Preguntas frecuentes', resumen: 'Resumen', mapa: 'Mapa mental' }
   const nombre = nombres[tipo.toLowerCase()]
   if (nombre === undefined) return base
   const detalle = resto.join('-')
@@ -39,13 +42,15 @@ export function tituloDocumento(archivo: string): string {
 }
 
 /** Agrupa las tarjetas para el PDF: primero lo que toca hoy, luego por etapa. */
-export function grupos(tarjetas: readonly Tarjeta[], hoy: string): { titulo: string; nota: string; tarjetas: Tarjeta[] }[] {
-  const hoyIds = new Set(pendientes(tarjetas, hoy).map(t => t.id))
+export function grupos(tarjetas: readonly Tarjeta[], hoy: string, limiteNuevas = Infinity): { titulo: string; nota: string; tarjetas: Tarjeta[] }[] {
+  const cola = pendientes(tarjetas, hoy, limiteNuevas)
+  const hoyIds = new Set(cola.map(t => t.id))
   const resto = tarjetas.filter(t => !hoyIds.has(t.id))
   return [
-    { titulo: 'Para repasar hoy', nota: 'Vencen hoy o antes', tarjetas: pendientes(tarjetas, hoy) },
-    { titulo: 'Aprendiendo', nota: 'Repaso en menos de 3 semanas', tarjetas: resto.filter(t => t.intervalo < 21) },
-    { titulo: 'Maduras', nota: 'Bien aprendidas (21 días o más)', tarjetas: resto.filter(t => t.intervalo >= 21) },
+    { titulo: 'Para repasar hoy', nota: 'Vencen hoy o antes', tarjetas: cola },
+    { titulo: 'Nuevas en espera', nota: 'Entran según el límite diario', tarjetas: resto.filter(t => t.ultimo === 0) },
+    { titulo: 'Aprendiendo', nota: 'Repaso en menos de 3 semanas', tarjetas: resto.filter(t => t.ultimo > 0 && t.intervalo < 21) },
+    { titulo: 'Maduras', nota: 'Bien aprendidas (21 días o más)', tarjetas: resto.filter(t => t.ultimo > 0 && t.intervalo >= 21) },
   ].filter(x => x.tarjetas.length > 0)
 }
 
@@ -87,10 +92,11 @@ export function documentoRepaso(d: DatosRepaso): string {
   const semana = stats.ultimosDias(s, hoy, 7)
   const t7 = stats.totales(s, semana[0]?.dia)
   const etapas = stats.etapas(tarjetas)
-  const nHoy = pendientes(tarjetas, hoy).length
+  const nHoy = pendientes(tarjetas, hoy, d.limiteNuevas).length
   const proxima = tarjetas.filter(t => t.vence > hoy).map(t => t.vence).sort()[0]
   const historia = stats.ultimosDias(s, hoy, 7 * 16).map(x => ({ dia: x.dia, valor: g.actividad(x.datos), diaSemana: diaSemana(x.dia) }))
-  const lote = grupos(tarjetas, hoy)
+  const lote = grupos(tarjetas, hoy, d.limiteNuevas)
+  const temas7 = stats.temas(s, semana[0]?.dia).slice(0, 6)
   const racha = stats.racha(s, hoy)
   // una sola numeración: la de la lista y la de las tarjetas para recortar
   const ordenadas = lote.flatMap(gr => gr.tarjetas)
@@ -120,7 +126,10 @@ export function documentoRepaso(d: DatosRepaso): string {
     <figure><figcaption>Pomodoros · últimos 7 días</figcaption>${g.barras(semana.map(x => ({ etiqueta: DIAS[diaSemana(x.dia)] ?? '', valor: x.datos.pomodoros, esHoy: x.dia === hoy })))}</figure>
     <figure><figcaption>Actividad · 16 semanas</figcaption>${g.mapaCalor(historia)}</figure>
   </div>
-  ${tarjetas.length > 0 ? `<figure class="ancho"><figcaption>Etapas de las tarjetas</figcaption>${g.etapas(etapas)}</figure>` : ''}
+  <div class="graficos">
+    ${temas7.length > 0 ? `<figure><figcaption>Tiempo por tema · 7 días</figcaption>${g.barrasTemas(temas7, stats.horas)}</figure>` : ''}
+    ${tarjetas.length > 0 ? `<figure><figcaption>Etapas de las tarjetas</figcaption>${g.etapas(etapas)}</figure>` : ''}
+  </div>
   <div class="columnas">
     <div>
       <h3>Fuentes (${cuaderno.fuentes.length})</h3>
@@ -151,12 +160,18 @@ export function documentoRepaso(d: DatosRepaso): string {
   </div>`).join('')}
 </section>`
 
-  const documentos = d.documentos.map((doc, i) => `
+  const documentos = d.documentos.map((doc, i) => {
+    // un mapa mental se dibuja como diagrama; el resto se maqueta como texto
+    const mapa = /^mapa/i.test(doc.archivo) ? leerMapa(doc.markdown) : undefined
+    const cuerpo = mapa !== undefined
+      ? `<h1>🧠 ${escapar(mapa.titulo)}</h1><figure class="mapa">${mapaSvg(mapa)}</figure>`
+      : `${/^\s*#\s/.test(doc.markdown) ? '' : `<h1>${escapar(tituloDocumento(doc.archivo))}</h1>`}${aHtml(doc.markdown)}`
+    return `
 <section id="doc-${i}" class="salto documento">
   <div class="origen">salidas/${escapar(doc.archivo)}</div>
-  ${/^\s*#\s/.test(doc.markdown) ? '' : `<h1>${escapar(tituloDocumento(doc.archivo))}</h1>`}
-  ${aHtml(doc.markdown)}
-</section>`).join('')
+  ${cuerpo}
+</section>`
+  }).join('')
 
   const corte = tarjetas.length === 0 ? '' : `
 <section id="recortar" class="instrucciones">
@@ -224,6 +239,7 @@ figure svg { max-width: 100%; height: auto; }
 .tarjeta .meta { margin-left: 1.6em; font-size: 8pt; color: #8A8F98; }
 .documento .origen { font: 8.5pt ui-monospace, monospace; color: #8A8F98; }
 .documento h1:first-of-type { margin-top: .2em; }
+.mapa svg { width: 100%; height: auto; max-height: 245mm; }
 .instrucciones { margin-top: 22px; padding: 12px 16px; border: 1.5px dashed #B8BDC4; border-radius: 12px; break-inside: avoid; }
 .instrucciones h2 { margin-top: 0; }
 .hoja-corte { page: corte; break-before: page; }

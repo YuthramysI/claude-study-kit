@@ -10,16 +10,16 @@ import { hostOf } from './motor'
 import { registrarPanel } from './panel'
 import { fecha, pendientes } from './srs'
 
-const PESTANAS: readonly Pestana[] = ['pomodoro', 'repaso', 'cuaderno', 'stats']
+const PESTANAS: readonly Pestana[] = ['pomodoro', 'repaso', 'cuaderno', 'mapa', 'stats']
 
 const AYUDA = `Comandos de estudio:
-  /estudio [pomodoro|repaso|cuaderno|stats|callar]   panel de estudio
+  /estudio [pomodoro|repaso|cuaderno|mapa|stats|callar]  panel de estudio
   /estudio pdf                                       PDF de repaso del cuaderno activo
-  /pomodoro [iniciar [min]|pausar|reanudar|saltar|parar|estado]
+  /pomodoro [iniciar [min] [tarea]|tarea <texto>|pausar|reanudar|saltar|parar|estado]
   /cuaderno [nombre]                                 crear o elegir cuaderno
   /repasar                                           repasar tarjetas pendientes
   /anki [exportar|importar <archivo>]                tarjetas: resumen, exportar a Anki, importar
-Con Claude: /estudio:preguntar · /estudio:tarjetas · /estudio:guia · /estudio:quiz · /estudio:audio`
+Con Claude: /estudio:preguntar · /estudio:resumir · /estudio:tarjetas · /estudio:guia · /estudio:mapa · /estudio:quiz · /estudio:audio`
 
 const VERBOS: Record<string, acc.VerboPomodoro> = {
   iniciar: 'iniciar', empezar: 'iniciar', start: 'iniciar',
@@ -30,7 +30,7 @@ const VERBOS: Record<string, acc.VerboPomodoro> = {
   alternar: 'alternar',
 }
 
-const ARG_POMODORO = '[iniciar [min]|pausar|reanudar|saltar|parar|estado|probar]'
+const ARG_POMODORO = '[iniciar [min] [tarea]|tarea <texto>|pausar|reanudar|saltar|parar|estado|probar]'
 
 export const register: Register = (on, options) => {
   const cfg = config(options)
@@ -56,7 +56,7 @@ export const register: Register = (on, options) => {
         acc.arranque.errores.push(`${nombre}: ${mensaje(err)}`)
       })
     await Promise.all([
-      registrar('/estudio', $.command.register({ name: 'estudio', description: 'Abre el panel de estudio (Pomodoro, repaso, cuaderno, estadísticas)', argumentHint: '[pomodoro|repaso|cuaderno|stats|pdf|callar|ayuda]' })),
+      registrar('/estudio', $.command.register({ name: 'estudio', description: 'Abre el panel de estudio (Pomodoro, repaso, cuaderno, estadísticas)', argumentHint: '[pomodoro|repaso|cuaderno|mapa|stats|pdf|callar|ayuda]' })),
       registrar('/pomodoro', $.command.register({ name: 'pomodoro', description: 'Controla el Pomodoro', argumentHint: ARG_POMODORO, immediate: true })),
       registrar('/promodoro', $.command.register({ name: 'promodoro', description: 'Igual que /pomodoro', argumentHint: ARG_POMODORO, immediate: true })),
       registrar('/cuaderno', $.command.register({ name: 'cuaderno', description: 'Crea o elige el cuaderno de estudio activo', argumentHint: '[nombre]' })),
@@ -97,6 +97,17 @@ export const register: Register = (on, options) => {
           required: ['tarjetas'],
         },
       })),
+      registrar('marcar_fuentes_resumidas', $.tool.register({
+        name: 'marcar_fuentes_resumidas',
+        isDeferred: false,
+        description:
+          'Marca como ya resumidas fuentes del cuaderno activo del plugin estudio, para que dejen de avisarse como nuevas. ' +
+          'Llámala al terminar de resumir. Sin `archivos`, marca todas las nuevas. Los nombres son relativos a fuentes/.',
+        inputSchema: {
+          type: 'object',
+          properties: { archivos: { type: 'array', items: { type: 'string' } } },
+        },
+      })),
       registrar('diagnostico_pomodoro', $.tool.register({
         name: 'diagnostico_pomodoro',
         description: 'Prueba los avisos del Pomodoro del plugin estudio (sonido, notificación, línea en el chat) y devuelve qué funcionó y el estado del temporizador. Úsala cuando el usuario diga que no le llegan los avisos.',
@@ -129,9 +140,10 @@ export const register: Register = (on, options) => {
       h.log(`estudio: ${que}: ${String(err)}`)
     }
     await acc.cargarStats(h, cfg).catch(fallo('estadísticas'))
+    await acc.cargarTareas(h).catch(fallo('tareas'))
     await acc.restaurarPomodoro(h).catch(fallo('pomodoro'))
     await acc.refrescarCuaderno(h, cfg).catch(fallo('cuaderno'))
-    if (cfg.recordatorio) h.after(3000, () => void acc.recordatorio(h).catch(fallo('recordatorio')))
+    if (cfg.recordatorio) h.after(3000, () => void acc.recordatorio(h, cfg).catch(fallo('recordatorio')))
     acc.arranque.fin = await $.clock.now()
     return started
   })
@@ -150,7 +162,7 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'promodoro' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoPomodoro($, e.args, cfg, home))))
   on('command.run', { command: 'cuaderno' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoCuaderno($, e.args, cfg, home))))
   on('command.run', { command: 'repasar' }, $ => conVigilancia($, cfg, home, () => seguro(() => comandoRepasar($, cfg, home))))
-  on('command.run', { command: 'anki' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoAnki($, e.args, home))))
+  on('command.run', { command: 'anki' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoAnki($, e.args, cfg, home))))
 
   // ── Herramientas para Claude ─────────────────────────────────────────────
 
@@ -168,6 +180,7 @@ export const register: Register = (on, options) => {
         salidas: `${info.ruta}/salidas`,
         fuentes: info.fuentes.map(f => `${info.ruta}/fuentes/${f}`),
         tarjetas: tarjetas.length,
+        ...(info.nuevas.length > 0 ? { fuentesNuevas: info.nuevas.map(f => `${info.ruta}/fuentes/${f}`) } : {}),
         ...(info.fuentes.length === 0 ? { aviso: `La carpeta de fuentes está vacía: el usuario debe copiar sus materiales a ${info.ruta}/fuentes/` } : {}),
       }, null, 2),
     }
@@ -189,6 +202,18 @@ export const register: Register = (on, options) => {
       return { result: mensaje(err) }
     }
   }).catch(() => ({ result: 'Error interno del plugin estudio al guardar las tarjetas.' }))
+
+  on('tool.call', { tool: 'mcp__estudio__marcar_fuentes_resumidas' }, async ($, e) => {
+    const lista: unknown = (e as { archivos?: unknown }).archivos
+    const archivos = Array.isArray(lista)
+      ? lista.filter((a): a is string => typeof a === 'string').map(a => a.replace(/^.*\/fuentes\//, ''))
+      : undefined
+    try {
+      return { result: await acc.marcarFuentesVistas(hostOf($, home), cfg, archivos) }
+    } catch (err) {
+      return { result: mensaje(err) }
+    }
+  }).catch(() => ({ result: 'Error interno del plugin estudio al marcar las fuentes.' }))
 
   on('tool.call', { tool: 'mcp__estudio__diagnostico_pomodoro' }, async $ => ({
     result: await acc.probarAvisos(hostOf($, home), cfg),
@@ -240,17 +265,29 @@ async function comandoEstudio($: EngineInterface, args: string, cfg: Config, hom
 
 async function comandoPomodoro($: EngineInterface, args: string, cfg: Config, home: string) {
   const h = hostOf($, home)
-  const [verbo = 'alternar', mins] = args.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  // la tarea conserva sus mayúsculas: solo el verbo se compara en minúsculas
+  const palabras = args.trim().split(/\s+/).filter(Boolean)
+  const verbo = (palabras[0] ?? 'alternar').toLowerCase()
   if (verbo === 'estado' || verbo === 'status') {
     return { text: acc.describirPomodoro(await h.st.pomodoro.leer(), await $.clock.now()) }
   }
   if (verbo === 'probar' || verbo === 'test') return { text: await acc.probarAvisos(h, cfg) }
-  const soloNumero = /^\d/.test(verbo)
-  const minutos = mins !== undefined ? Number(mins.replace(',', '.')) : soloNumero ? Number(verbo.replace(',', '.')) : undefined
+  if (verbo === 'tarea' || verbo === 'task') {
+    const tarea = palabras.slice(1).join(' ')
+    if (tarea === '') return { text: `Tarea actual: ${(await h.st.pomodoro.leer()).tarea ?? 'ninguna'}. Cámbiala con /pomodoro tarea <texto>.` }
+    return { text: await acc.fijarTarea(h, tarea) }
+  }
+  const esNumero = (p: string | undefined) => p !== undefined && /^\d+([.,]\d+)?$/.test(p)
+  const soloNumero = esNumero(palabras[0])
+  const accion = soloNumero ? 'iniciar' : palabras.length === 0 ? 'alternar' : VERBOS[verbo]
+  if (accion === undefined) return { text: `No entiendo «${palabras[0] ?? ''}». Usa: /pomodoro ${ARG_POMODORO}` }
+  const conMinutos = soloNumero ? palabras[0] : esNumero(palabras[1]) ? palabras[1] : undefined
+  const minutos = conMinutos !== undefined ? Number(conMinutos.replace(',', '.')) : undefined
   if (minutos !== undefined && !(minutos > 0 && minutos <= 240)) return { text: 'Los minutos van de 1 a 240.' }
-  const accion = soloNumero ? 'iniciar' : VERBOS[verbo]
-  if (accion === undefined) return { text: `No entiendo «${verbo}». Usa: /pomodoro ${ARG_POMODORO}` }
-  return { text: await acc.pomodoro(h, cfg, accion, minutos) }
+  const resto = palabras.slice(soloNumero ? 1 : conMinutos !== undefined ? 2 : 1).join(' ')
+  // solo al iniciar se puede nombrar la tarea en la misma orden
+  const tarea = accion === 'iniciar' || accion === 'alternar' ? resto : ''
+  return { text: await acc.pomodoro(h, cfg, accion, minutos, tarea === '' ? undefined : tarea) }
 }
 
 async function comandoCuaderno($: EngineInterface, args: string, cfg: Config, home: string) {
@@ -274,19 +311,19 @@ async function comandoCuaderno($: EngineInterface, args: string, cfg: Config, ho
 async function comandoRepasar($: EngineInterface, cfg: Config, home: string) {
   const h = hostOf($, home)
   await acc.refrescarCuaderno(h, cfg)
-  const n = pendientes(await h.st.tarjetas.leer(), fecha(await $.clock.now())).length
+  const n = pendientes(await h.st.tarjetas.leer(), fecha(await $.clock.now()), cfg.nuevasPorDia).length
   const abierto = await abrirPanel(h, cfg, 'repaso')
   if (n === 0) return { text: `${abierto} No tienes tarjetas pendientes hoy. 🎉` }
   return { text: `${abierto} ${n} ${n === 1 ? 'tarjeta pendiente' : 'tarjetas pendientes'} hoy: pulsa m para ver la respuesta y 1-4 para calificar.` }
 }
 
-async function comandoAnki($: EngineInterface, args: string, home: string) {
+async function comandoAnki($: EngineInterface, args: string, cfg: Config, home: string) {
   const h = hostOf($, home)
   const [sub = '', ...resto] = args.trim().split(/\s+/)
   switch (sub.toLowerCase()) {
     case '':
     case 'estado':
-      return { text: await acc.textoTarjetas(h) }
+      return { text: await acc.textoTarjetas(h, cfg) }
     case 'exportar':
     case 'export':
       return { text: await acc.exportarAnki(h) }

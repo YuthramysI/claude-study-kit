@@ -66,7 +66,7 @@ test('/pomodoro 1 arranca un enfoque de un minuto y /pomodoro estado lo describe
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
 
   const inicio = await $.command.run({ command: 'pomodoro', args: '1', origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } })
-  expect(inicio.text).toBe('🍅 01:00 · enfoque 1/4')
+  expect(inicio.text).toBe('🍅 01:00 · enfoque 1/4 · General')
   const estado = await $.command.run({ command: 'pomodoro', args: 'estado', origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } })
   expect(estado.text).toContain('enfoque')
   const nada = await $.command.run({ command: 'pomodoro', args: 'bailar', origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } })
@@ -98,8 +98,8 @@ test('/pomodoro sin argumentos inicia o reanuda, pero nunca pausa', async ($, on
   motor(on)
   const cmd = { origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } } as const
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-  expect((await $.command.run({ command: 'pomodoro', args: '', ...cmd })).text).toBe('🍅 25:00 · enfoque 1/4')
-  expect((await $.command.run({ command: 'promodoro', args: '', ...cmd })).text).toBe('🍅 25:00 · enfoque 1/4')
+  expect((await $.command.run({ command: 'pomodoro', args: '', ...cmd })).text).toBe('🍅 25:00 · enfoque 1/4 · General')
+  expect((await $.command.run({ command: 'promodoro', args: '', ...cmd })).text).toBe('🍅 25:00 · enfoque 1/4 · General')
   await $.command.run({ command: 'pomodoro', args: 'pausar', ...cmd })
   expect((await $.command.run({ command: 'pomodoro', args: '', ...cmd })).text).not.toContain('pausa')
 })
@@ -136,9 +136,9 @@ test('«/pomodoro iniciar» con el reloj en marcha no lo reinicia', async ($, on
   await $.command.run({ command: 'pomodoro', args: 'iniciar', ...cmd })
   await clock.advance(30_000)
   const otra = await $.command.run({ command: 'pomodoro', args: 'iniciar', ...cmd })
-  expect(otra.text).toBe('🍅 24:30 · enfoque 1/4')
+  expect(otra.text).toBe('🍅 24:30 · enfoque 1/4 · General')
   // con minutos explícitos sí empieza uno nuevo
-  expect((await $.command.run({ command: 'pomodoro', args: 'iniciar 10', ...cmd })).text).toBe('🍅 10:00 · enfoque 1/4')
+  expect((await $.command.run({ command: 'pomodoro', args: 'iniciar 10', ...cmd })).text).toBe('🍅 10:00 · enfoque 1/4 · General')
 })
 
 test('si el temporizador no late, el siguiente comando detecta la fase vencida y avisa', async ($, on) => {
@@ -170,4 +170,49 @@ test('si el temporizador no late, el siguiente comando detecta la fase vencida y
   const estado = await $.command.run({ command: 'pomodoro', args: 'estado', ...cmd })
   expect(avisos.some(a => a.includes('Pomodoro terminado'))).toBe(true)
   expect(estado.text).toContain('descanso')
+})
+
+test('tareas: por defecto el cuaderno activo; /pomodoro 1 Química la fija y cuenta su tiempo', async ($, on) => {
+  const clock = motor(on)
+  const cmd = { origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } } as const
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+
+  expect((await $.command.run({ command: 'pomodoro', args: '1', ...cmd })).text).toBe('🍅 01:00 · enfoque 1/4 · General')
+  await clock.advance(61_000)
+  expect((await $.command.run({ command: 'pomodoro', args: 'parar', ...cmd })).text).toContain('parado')
+
+  expect((await $.command.run({ command: 'pomodoro', args: '1 Química Orgánica', ...cmd })).text).toBe('🍅 01:00 · enfoque 2/4 · Química Orgánica')
+  await clock.advance(61_000)
+
+  const stats = await $.command.run({ command: 'estudio', args: 'stats', ...cmd })
+  expect(stats.text).toContain('Por tema (7 días): General 1 min · Química Orgánica 1 min')
+
+  const ui = await $.ui.mount({ ...PANEL, surface: 'terminal' })
+  await ui.press({ key: 'tab-stats' })
+  expect(await ui.find({ type: 'Text', text: /Tiempo por tema/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Química Org…/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('tareas: cambiarla desde el panel y elegir una reciente', async ($, on) => {
+  motor(on)
+  const cmd = { origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } } as const
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  expect((await $.command.run({ command: 'pomodoro', args: 'tarea Inglés', ...cmd })).text).toBe('📌 Tarea: Inglés')
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...PANEL, surface })
+    // en escritorio ya vale TFG: la cambió la vuelta de la terminal
+    expect(await ui.find({ type: 'Text', text: surface === 'terminal' ? /^📌 Inglés$/ : /^📌 TFG$/ })).toBeDefined()
+    await ui.press({ key: 'cambiar-tarea' })
+    if (surface === 'terminal') {
+      await ui.input({ key: 'tarea', text: 'TFG' })
+      expect(await ui.find({ type: 'Text', text: /^📌 TFG$/ })).toBeDefined()
+    } else {
+      // la reciente anterior aparece como atajo
+      await ui.press({ key: 'tarea-1' })
+      expect(await ui.find({ type: 'Text', text: /^📌 Inglés$/ })).toBeDefined()
+    }
+    await ui.unmount()
+  }
+  expect((await $.command.run({ command: 'pomodoro', args: 'tarea', ...cmd })).text).toContain('Tarea actual: Inglés')
 })

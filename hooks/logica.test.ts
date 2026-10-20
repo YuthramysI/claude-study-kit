@@ -2,54 +2,91 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import { trozos } from './acciones'
 import * as pomo from './pomodoro'
-import { fecha, fusionar, intervaloPara, nueva, pendientes, programar, sumarDias } from './srs'
+import { describirIntervalo, fecha, fusionar, intervaloPara, nueva, nuevasEnEspera, pendientes, programar, sumarDias } from './srs'
 
 const D = { enfoque: 25, descanso: 5, descansoLargo: 15 }
 const T0 = new Date(2026, 9, 20, 10, 0, 0).getTime()
 
-describe('SM-2', () => {
-  test('una tarjeta nueva vence hoy y "bien" la manda a mañana, luego a 6 días', async () => {
+const DIA = 86_400_000
+
+describe('FSRS', () => {
+  test('primer repaso: los intervalos salen de la estabilidad inicial de cada nota', async () => {
     const t = nueva({ frente: '¿Qué es la mitosis?', reverso: 'División celular' }, fecha(T0), 'a')
     expect(t.vence).toBe('2026-10-20')
+    expect((['otra', 'dificil', 'bien', 'facil'] as const).map(n => intervaloPara(t, n, T0))).toEqual([0, 1, 4, 14])
     const t1 = programar(t, 'bien', T0)
-    expect(t1.intervalo).toBe(1)
-    expect(t1.vence).toBe('2026-10-21')
-    const t2 = programar(t1, 'bien', T0 + 86_400_000)
-    expect(t2.intervalo).toBe(6)
-    expect(t2.vence).toBe('2026-10-27')
-    const t3 = programar(t2, 'bien', T0 + 7 * 86_400_000)
-    expect(t3.intervalo).toBe(15)
+    expect(t1.vence).toBe('2026-10-24')
+    expect(t1.estabilidad).toBe(3.715)
+    expect(t1.primera).toBe('2026-10-20')
   })
 
-  test('"otra vez" reinicia, baja la facilidad y la deja para hoy', async () => {
-    const t = { ...nueva({ frente: 'a', reverso: 'b' }, '2026-10-01', 'x'), repeticiones: 3, intervalo: 20 }
-    const r = programar(t, 'otra', T0)
-    expect(r.repeticiones).toBe(0)
-    expect(r.vence).toBe('2026-10-20')
-    expect(r.facilidad).toBeLessThan(2.5)
+  test('repasar a tiempo y bien hace crecer el intervalo', async () => {
+    let t = programar(nueva({ frente: 'a', reverso: 'b' }, '2026-10-20', 'x'), 'bien', T0)
+    let dia = T0
+    const intervalos: number[] = []
+    for (let i = 0; i < 4; i++) {
+      dia += t.intervalo * DIA
+      t = programar(t, 'bien', dia)
+      intervalos.push(t.intervalo)
+    }
+    for (let i = 1; i < intervalos.length; i++) expect(intervalos[i] ?? 0).toBeGreaterThan(intervalos[i - 1] ?? 0)
+    expect(intervalos[0] ?? 0).toBeGreaterThan(4)
   })
 
-  test('la facilidad nunca baja de 1.3', async () => {
-    let t = nueva({ frente: 'a', reverso: 'b' }, '2026-10-20', 'x')
-    for (let i = 0; i < 20; i++) t = programar(t, 'otra', T0)
-    expect(t.facilidad).toBe(1.3)
+  test('«otra vez» la deja para hoy, baja la estabilidad y sube la dificultad', async () => {
+    const aprendida = programar(programar(nueva({ frente: 'a', reverso: 'b' }, '2026-10-20', 'x'), 'bien', T0), 'bien', T0 + 4 * DIA)
+    const fallo = programar(aprendida, 'otra', T0 + 20 * DIA)
+    expect(fallo.intervalo).toBe(0)
+    expect(fallo.vence).toBe('2026-11-09')
+    expect(fallo.estabilidad ?? 99).toBeLessThan(aprendida.estabilidad ?? 0)
+    expect(fallo.dificultad ?? 0).toBeGreaterThan(aprendida.dificultad ?? 99)
   })
 
-  test('los intervalos crecen de difícil a fácil', async () => {
-    const t = { ...nueva({ frente: 'a', reverso: 'b' }, '2026-10-20', 'x'), repeticiones: 2, intervalo: 10 }
-    const [d, b, f] = (['dificil', 'bien', 'facil'] as const).map(n => intervaloPara(t, n))
-    expect(d).toBeLessThan(b ?? 0)
-    expect(b).toBeLessThan(f ?? 0)
+  test('la dificultad se queda entre 1 y 10', async () => {
+    let t = programar(nueva({ frente: 'a', reverso: 'b' }, '2026-10-20', 'x'), 'otra', T0)
+    for (let i = 0; i < 30; i++) t = programar(t, 'otra', T0 + i * DIA)
+    expect(t.dificultad ?? 0).toBeLessThanOrEqual(10)
+    let f = programar(nueva({ frente: 'a', reverso: 'b' }, '2026-10-20', 'y'), 'facil', T0)
+    for (let i = 0; i < 30; i++) f = programar(f, 'facil', T0 + i * DIA)
+    expect(f.dificultad ?? 0).toBeGreaterThanOrEqual(1)
   })
 
-  test('pendientes: solo las vencidas, la repasada hace menos al final', async () => {
+  test('los intervalos crecen de difícil a fácil, y una retención más alta los acorta', async () => {
+    const t = programar(nueva({ frente: 'a', reverso: 'b' }, '2026-10-20', 'x'), 'bien', T0)
+    const dia = T0 + 4 * DIA
+    const [d, b, f] = (['dificil', 'bien', 'facil'] as const).map(n => intervaloPara(t, n, dia))
+    expect(d ?? 0).toBeLessThan(b ?? 0)
+    expect(b ?? 0).toBeLessThan(f ?? 0)
+    expect(intervaloPara(t, 'bien', dia, 0.97)).toBeLessThan(b ?? 0)
+  })
+
+  test('una tarjeta de SM-2 conserva su ritmo al pasar a FSRS', async () => {
+    const sm2 = { ...nueva({ frente: 'a', reverso: 'b' }, '2026-10-01', 'x'), intervalo: 30, facilidad: 2.5, repeticiones: 4, ultimo: T0 - 30 * DIA }
+    const r = programar(sm2, 'bien', T0)
+    expect(r.intervalo).toBeGreaterThan(30)
+    expect(r.estabilidad).toBeDefined()
+  })
+
+  test('cola de hoy: repasos vencidos primero y nuevas según el límite diario', async () => {
     const base = nueva({ frente: 'a', reverso: 'b' }, '2026-10-20', 'x')
     const lista = [
-      { ...base, id: '1', vence: '2026-10-19', ultimo: 50 },
-      { ...base, id: '2', vence: '2026-10-25', ultimo: 0 },
-      { ...base, id: '3', vence: '2026-10-20', ultimo: 10 },
+      { ...base, id: 'r1', vence: '2026-10-19', ultimo: 50, intervalo: 3 },
+      { ...base, id: 'n1' },
+      { ...base, id: 'r2', vence: '2026-10-20', ultimo: 10, intervalo: 3 },
+      { ...base, id: 'n2' },
+      { ...base, id: 'n3' },
+      { ...base, id: 'futura', vence: '2026-10-25', ultimo: 5, intervalo: 9 },
+      { ...base, id: 'empezada', vence: '2026-10-22', ultimo: 60, primera: '2026-10-20' },
     ]
-    expect(pendientes(lista, '2026-10-20').map(t => t.id)).toEqual(['3', '1'])
+    expect(pendientes(lista, '2026-10-20').map(t => t.id)).toEqual(['r2', 'r1', 'n1', 'n2', 'n3'])
+    // límite 2 y ya empezaste 1 hoy: solo entra 1 nueva
+    expect(pendientes(lista, '2026-10-20', 2).map(t => t.id)).toEqual(['r2', 'r1', 'n1'])
+    expect(nuevasEnEspera(lista, '2026-10-20', 2)).toBe(2)
+    expect(pendientes(lista, '2026-10-20', 0).map(t => t.id)).toEqual(['r2', 'r1'])
+  })
+
+  test('describirIntervalo', async () => {
+    expect([0, 3, 21, 90, 500].map(describirIntervalo)).toEqual(['hoy', '3 d', '3 sem', '3 m', '1,4 a'])
   })
 
   test('fusionar omite frentes repetidos (sin importar tildes ni mayúsculas) y vacíos', async () => {

@@ -55,7 +55,7 @@ describe('documento de repaso', () => {
 
   test('el documento escapa el contenido y lleva todas las secciones', async () => {
     const html = documentoRepaso({
-      cuaderno: { nombre: 'bio <x>', ruta: '/r', fuentes: ['tema1.pdf'] },
+      cuaderno: { nombre: 'bio <x>', ruta: '/r', fuentes: ['tema1.pdf'], nuevas: [] },
       hoy: '2026-10-20',
       tarjetas: [tarjeta('1', '¿<b>ATP</b>?')],
       stats: { '2026-10-20': { pomodoros: 2, minutos: 50, repasos: 4, aciertos: 3 } },

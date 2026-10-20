@@ -29,6 +29,8 @@ export async function listar(h: Host, base: string): Promise<string[]> {
 
 export async function crear(h: Host, base: string, nombre: string): Promise<string> {
   const ruta = `${base}/${nombre}`
+  // un cuaderno recién creado no ha visto ninguna fuente: todo lo que llegue será nuevo
+  if (!(await h.fs.exists(ruta))) await h.storeSet(claveVistas(ruta), [])
   if (!(await h.fs.exists(`${ruta}/fuentes/.leeme`))) {
     await h.fs.write(
       `${ruta}/fuentes/.leeme`,
@@ -64,7 +66,31 @@ export async function fuentes(h: Host, ruta: string): Promise<string[]> {
 
 export async function info(h: Host, base: string, nombre: string): Promise<InfoCuaderno> {
   const ruta = `${base}/${nombre}`
-  return { nombre, ruta, fuentes: await fuentes(h, ruta) }
+  const lista = await fuentes(h, ruta)
+  const vistas = await fuentesVistas(h, ruta)
+  if (vistas === undefined) {
+    // cuaderno de antes de esta función: lo que ya tenía no cuenta como nuevo
+    await h.storeSet(claveVistas(ruta), lista)
+    return { nombre, ruta, fuentes: lista, nuevas: [] }
+  }
+  const conocidas = new Set(vistas)
+  return { nombre, ruta, fuentes: lista, nuevas: lista.filter(f => !conocidas.has(f)) }
+}
+
+const claveVistas = (ruta: string) => `fuentesVistas:${ruta}`
+
+async function fuentesVistas(h: Host, ruta: string): Promise<string[] | undefined> {
+  const v = await h.storeGet(claveVistas(ruta))
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : undefined
+}
+
+/** Da por vistas estas fuentes (resumidas o ignoradas): dejan de salir como nuevas. */
+export async function marcarVistas(h: Host, ruta: string, archivos: readonly string[]) {
+  const vistas = new Set((await fuentesVistas(h, ruta)) ?? [])
+  for (const a of archivos) vistas.add(a)
+  // solo se guardan las que siguen existiendo
+  const actuales = new Set(await fuentes(h, ruta))
+  await h.storeSet(claveVistas(ruta), [...vistas].filter(a => actuales.has(a)).sort())
 }
 
 const DIAS_SEMANA = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'] as const
@@ -147,6 +173,9 @@ export function normalizar(x: unknown, i: number): Tarjeta | undefined {
     repeticiones: Math.max(0, Math.round(num(t.repeticiones, 0))),
     vence: typeof t.vence === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t.vence) ? t.vence : '0000-00-00',
     ultimo: num(t.ultimo, 0),
+    ...(typeof t.estabilidad === 'number' && t.estabilidad > 0 ? { estabilidad: t.estabilidad } : {}),
+    ...(typeof t.dificultad === 'number' && Number.isFinite(t.dificultad) ? { dificultad: Math.min(10, Math.max(1, t.dificultad)) } : {}),
+    ...(typeof t.primera === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t.primera) ? { primera: t.primera } : {}),
   }
 }
 

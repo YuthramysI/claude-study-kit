@@ -1,4 +1,5 @@
-// Repaso espaciado SM-2 (SuperMemo 2), en funciones puras.
+// Repaso espaciado con FSRS-4.5 (Free Spaced Repetition Scheduler), en funciones puras.
+// https://github.com/open-spaced-repetition/fsrs4anki/wiki/The-Algorithm
 import type { Tarjeta } from '../types'
 
 export type Nota = 'otra' | 'dificil' | 'bien' | 'facil'
@@ -12,10 +13,24 @@ export const ETIQUETAS: Record<Nota, string> = {
   facil: 'Fácil',
 }
 
-/** Calidad de la respuesta en la escala 0-5 de SM-2. */
-const CALIDAD: Record<Nota, number> = { otra: 1, dificil: 3, bien: 4, facil: 5 }
+/** La nota en la escala de FSRS: 1 otra vez · 2 difícil · 3 bien · 4 fácil. */
+const GRADO: Record<Nota, 1 | 2 | 3 | 4> = { otra: 1, dificil: 2, bien: 3, facil: 4 }
 
-const FACILIDAD_MIN = 1.3
+/** Los 17 parámetros por defecto de FSRS-4.5. */
+export const W = [
+  0.4872, 1.4003, 3.7145, 13.8206, 5.1618, 1.2298, 0.8975, 0.031, 1.6474,
+  0.1367, 1.0461, 2.1072, 0.0793, 0.3246, 1.587, 0.2272, 2.8755,
+] as const
+
+const DECAY = -0.5
+const FACTOR = 19 / 81
+const MAX_INTERVALO = 36_500
+
+/** Retención deseada por defecto: el 90 % de las tarjetas se recuerdan el día que vencen. */
+export const RETENCION = 0.9
+
+const w = (i: number) => W[i] ?? 0
+const acotar = (x: number, min: number, max: number) => Math.min(max, Math.max(min, x))
 
 /** Fecha local YYYY-MM-DD de un instante en ms. */
 export function fecha(ms: number): string {
@@ -28,6 +43,15 @@ export function fecha(ms: number): string {
 export function sumarDias(dia: string, dias: number): string {
   const [y, m, d] = dia.split('-').map(Number)
   return fecha(new Date(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + dias).getTime())
+}
+
+/** Días naturales entre dos fechas YYYY-MM-DD (b − a). */
+export function diasEntre(a: string, b: string): number {
+  const ms = (dia: string) => {
+    const [y, m, d] = dia.split('-').map(Number)
+    return Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1)
+  }
+  return Math.round((ms(b) - ms(a)) / 86_400_000)
 }
 
 export function nueva(
@@ -48,48 +72,108 @@ export function nueva(
   }
 }
 
-/** Días hasta el próximo repaso si se califica con `nota` (sin cambiar la tarjeta). */
-export function intervaloPara(t: Tarjeta, nota: Nota): number {
-  if (nota === 'otra') return 0
-  const q = CALIDAD[nota]
-  let dias: number
-  if (t.repeticiones === 0) dias = nota === 'facil' ? 4 : 1
-  else if (t.repeticiones === 1) dias = nota === 'dificil' ? 3 : 6
-  else dias = Math.round(t.intervalo * nuevaFacilidad(t.facilidad, q))
-  if (nota === 'dificil' && t.repeticiones > 1) dias = Math.max(1, Math.round(t.intervalo * 1.2))
-  if (nota === 'facil' && t.repeticiones > 0) dias = Math.round(dias * 1.3)
-  return Math.max(1, dias)
+// ── FSRS ────────────────────────────────────────────────────────────────────
+
+/** Probabilidad de recordar tras `dias` con estabilidad `s`. */
+export function retencionTras(dias: number, s: number): number {
+  return Math.pow(1 + (FACTOR * Math.max(0, dias)) / s, DECAY)
 }
 
-function nuevaFacilidad(ef: number, q: number): number {
-  return Math.max(FACILIDAD_MIN, ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)))
+/** Días hasta que la probabilidad de recordar baja a `retencion`. */
+export function intervaloDe(s: number, retencion = RETENCION): number {
+  const dias = (s / FACTOR) * (Math.pow(retencion, 1 / DECAY) - 1)
+  return acotar(Math.round(dias), 1, MAX_INTERVALO)
 }
 
-/** Aplica una calificación: devuelve la tarjeta con su nuevo intervalo y vencimiento. */
-export function programar(t: Tarjeta, nota: Nota, ahora: number): Tarjeta {
+const dificultadInicial = (g: number) => acotar(w(4) - (g - 3) * w(5), 1, 10)
+
+/**
+ * Estado de memoria de una tarjeta: el suyo si ya lo tiene; para una tarjeta
+ * que viene de SM-2, una estimación a partir de su intervalo y su facilidad.
+ */
+export function memoria(t: Tarjeta): { estabilidad: number; dificultad: number } | undefined {
+  if (t.ultimo === 0) return undefined
+  if (t.estabilidad !== undefined && t.dificultad !== undefined) return { estabilidad: t.estabilidad, dificultad: t.dificultad }
+  // SM-2: facilidad 2.5 ≈ dificultad media; 1.3 (la mínima) ≈ muy difícil
+  return { estabilidad: Math.max(0.5, t.intervalo), dificultad: acotar(10 - (t.facilidad - 1.3) * 4, 1, 10) }
+}
+
+/** Aplica una calificación: devuelve la tarjeta con su nuevo estado y su próximo repaso. */
+export function programar(t: Tarjeta, nota: Nota, ahora: number, retencion = RETENCION): Tarjeta {
+  const g = GRADO[nota]
   const hoy = fecha(ahora)
-  const intervalo = intervaloPara(t, nota)
+  const previa = memoria(t)
+  let s: number
+  let d: number
+  if (previa === undefined) {
+    s = w(g - 1)
+    d = dificultadInicial(g)
+  } else {
+    const dias = Math.max(0, diasEntre(fecha(t.ultimo), hoy))
+    const r = retencionTras(dias, previa.estabilidad)
+    d = acotar(w(7) * dificultadInicial(3) + (1 - w(7)) * (previa.dificultad - w(6) * (g - 3)), 1, 10)
+    if (g === 1) {
+      const olvido = w(11) * Math.pow(previa.dificultad, -w(12)) * (Math.pow(previa.estabilidad + 1, w(13)) - 1) * Math.exp(w(14) * (1 - r))
+      s = Math.min(previa.estabilidad, olvido)
+    } else {
+      const penalizacion = g === 2 ? w(15) : 1
+      const bonus = g === 4 ? w(16) : 1
+      s = previa.estabilidad * (Math.exp(w(8)) * (11 - previa.dificultad) * Math.pow(previa.estabilidad, -w(9)) *
+        (Math.exp(w(10) * (1 - r)) - 1) * penalizacion * bonus + 1)
+    }
+  }
+  s = Math.max(0.1, s)
+  // «otra vez» vuelve hoy mismo, al final de la cola
+  const intervalo = g === 1 ? 0 : intervaloDe(s, retencion)
   return {
     ...t,
+    estabilidad: Math.round(s * 1000) / 1000,
+    dificultad: Math.round(d * 1000) / 1000,
     intervalo,
-    facilidad: nuevaFacilidad(t.facilidad, CALIDAD[nota]),
-    repeticiones: nota === 'otra' ? 0 : t.repeticiones + 1,
+    repeticiones: g === 1 ? 0 : t.repeticiones + 1,
     vence: sumarDias(hoy, intervalo),
     ultimo: ahora,
+    primera: t.primera ?? hoy,
   }
 }
 
-/** Tarjetas que vencen hoy o antes; las repasadas hace menos van al final. */
-export function pendientes(tarjetas: readonly Tarjeta[], hoy: string): Tarjeta[] {
-  return tarjetas.filter(t => t.vence <= hoy).sort((a, b) => a.ultimo - b.ultimo)
+/** Días hasta el próximo repaso si se califica con `nota` (sin cambiar la tarjeta). */
+export function intervaloPara(t: Tarjeta, nota: Nota, ahora: number, retencion = RETENCION): number {
+  return programar(t, nota, ahora, retencion).intervalo
 }
 
-/** Texto corto para un intervalo: "hoy", "1 d", "3 sem", "2 m". */
+// ── Cola del día ────────────────────────────────────────────────────────────
+
+/** Nunca repasada: aún no ha entrado en el repaso espaciado. */
+export const esNueva = (t: Tarjeta) => t.ultimo === 0
+
+/**
+ * La cola de hoy: primero los repasos vencidos (los repasados hace menos, al
+ * final), después las nuevas, como mucho `limiteNuevas` al día contando las que
+ * ya empezaste hoy.
+ */
+export function pendientes(tarjetas: readonly Tarjeta[], hoy: string, limiteNuevas = Infinity): Tarjeta[] {
+  const repasos = tarjetas.filter(t => !esNueva(t) && t.vence <= hoy).sort((a, b) => a.ultimo - b.ultimo)
+  const empezadasHoy = tarjetas.filter(t => t.primera === hoy).length
+  const cupo = Math.max(0, limiteNuevas - empezadasHoy)
+  const nuevas = tarjetas.filter(t => esNueva(t) && t.vence <= hoy).slice(0, cupo)
+  return [...repasos, ...nuevas]
+}
+
+/** Nuevas que esperan su turno por el límite diario. */
+export function nuevasEnEspera(tarjetas: readonly Tarjeta[], hoy: string, limiteNuevas = Infinity): number {
+  const nuevas = tarjetas.filter(t => esNueva(t) && t.vence <= hoy).length
+  const cola = pendientes(tarjetas, hoy, limiteNuevas).filter(esNueva).length
+  return nuevas - cola
+}
+
+/** Texto corto para un intervalo: "hoy", "1 d", "3 sem", "2 m", "1,5 a". */
 export function describirIntervalo(dias: number): string {
   if (dias <= 0) return 'hoy'
   if (dias < 14) return `${dias} d`
   if (dias < 60) return `${Math.round(dias / 7)} sem`
-  return `${Math.round(dias / 30)} m`
+  if (dias < 365) return `${Math.round(dias / 30)} m`
+  return `${(Math.round(dias / 36.5) / 10).toString().replace('.', ',')} a`
 }
 
 const normalizar = (s: string) =>

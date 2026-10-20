@@ -12,6 +12,9 @@ const cuadernoA = atom({ plugin: 'estudio', key: 'cuaderno' } as const, null)
 const tarjetasA = atom({ plugin: 'estudio', key: 'tarjetas' } as const, [])
 const ahoraA = atom({ plugin: 'estudio', key: 'ahora' } as const, 0)
 const statsA = atom({ plugin: 'estudio', key: 'stats' } as const, {})
+const tareasA = atom({ plugin: 'estudio', key: 'tareas' } as const, [])
+const editandoTareaA = atom({ plugin: 'estudio', key: 'editandoTarea' } as const, false)
+const mapaA = atom({ plugin: 'estudio', key: 'mapa' } as const, null)
 
 /**
  * Enlaza un Host desde `$`. Cada miembro se escribe `$.noun.event(...)` aquí,
@@ -41,6 +44,9 @@ export function hostOf($: EngineInterface, home: string): Host {
       tarjetas: { leer: () => read($, tarjetasA), cambiar: fn => update($, tarjetasA, fn) },
       ahora: { leer: () => read($, ahoraA), cambiar: fn => update($, ahoraA, fn) },
       stats: { leer: () => read($, statsA), cambiar: fn => update($, statsA, fn) },
+      tareas: { leer: () => read($, tareasA), cambiar: fn => update($, tareasA, fn) },
+      editandoTarea: { leer: () => read($, editandoTareaA), cambiar: fn => update($, editandoTareaA, fn) },
+      mapa: { leer: () => read($, mapaA), cambiar: fn => update($, mapaA, fn) },
     },
     status: text => $.ui.status(text),
     toast: (text, timeoutMs) => $.ui.toast(text, timeoutMs !== undefined ? { timeoutMs } : undefined),
@@ -52,5 +58,9 @@ export function hostOf($: EngineInterface, home: string): Host {
     run: (argv, init) => $.process.run(argv, init),
     play: (asset, gain) => $.audio.play({ asset }, { gain }),
     speak: text => $.audio.speak(text),
+    completar: pedido =>
+      $.model
+        .complete({ model: 'haiku', system: pedido.system, prompt: pedido.prompt, maxTokens: pedido.maxTokens, timeoutMs: 30_000 })
+        .then(r => (r.isAnswered ? r.text : undefined), () => undefined),
   }
 }

@@ -44,7 +44,7 @@ export function reanudar(p: Pomodoro, ahora: number): Pomodoro {
 }
 
 export function parar(p: Pomodoro): Pomodoro {
-  return { ...INICIAL, ronda: p.ronda }
+  return { ...INICIAL, ronda: p.ronda, ...(p.tarea !== undefined ? { tarea: p.tarea } : {}) }
 }
 
 export function restante(p: Pomodoro, ahora: number): number {
@@ -73,7 +73,7 @@ export function siguiente(
     return { pomodoro: iniciar({ ...p, fase, ronda }, ahora, d), completoEnfoque: true }
   }
   const ronda = p.fase === 'descansoLargo' ? 0 : p.ronda
-  const listo: Pomodoro = { ...INICIAL, ronda }
+  const listo: Pomodoro = { ...INICIAL, ronda, ...(p.tarea !== undefined ? { tarea: p.tarea } : {}) }
   return { pomodoro: autoIniciar ? iniciar(listo, ahora, d) : listo, completoEnfoque: false }
 }
 
@@ -90,8 +90,11 @@ export function restaurar(guardado: unknown, ahora: number): Pomodoro {
     typeof p.terminaEn === 'number' && typeof p.restanteMs === 'number' &&
     typeof p.duracionMs === 'number' && typeof p.ronda === 'number'
   if (!valido) return INICIAL
-  const r = p as Pomodoro
-  if (r.estado === 'corriendo' && ahora >= r.terminaEn) return { ...INICIAL, ronda: r.fase === 'enfoque' ? r.ronda : 0 }
+  const r: Pomodoro = { ...(p as Pomodoro) }
+  if (typeof r.tarea !== 'string' || r.tarea.trim() === '') delete r.tarea
+  if (r.estado === 'corriendo' && ahora >= r.terminaEn) {
+    return { ...INICIAL, ronda: r.fase === 'enfoque' ? r.ronda : 0, ...(r.tarea !== undefined ? { tarea: r.tarea } : {}) }
+  }
   return r
 }
 
@@ -105,5 +108,6 @@ export function lineaEstado(p: Pomodoro, ahora: number): string | undefined {
   const icono = p.fase === 'enfoque' ? '🍅' : '☕'
   const pausa = p.estado === 'pausado' ? ' (pausa)' : ''
   const ronda = p.fase === 'enfoque' ? ` ${(p.ronda % RONDAS_POR_CICLO) + 1}/${RONDAS_POR_CICLO}` : ''
-  return `${icono} ${reloj(restante(p, ahora))} · ${NOMBRE_FASE[p.fase]}${ronda}${pausa}`
+  const tarea = p.fase === 'enfoque' && p.tarea !== undefined ? ` · ${p.tarea}` : ''
+  return `${icono} ${reloj(restante(p, ahora))} · ${NOMBRE_FASE[p.fase]}${ronda}${tarea}${pausa}`
 }
