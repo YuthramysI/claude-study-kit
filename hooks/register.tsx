@@ -17,7 +17,7 @@ const AYUDA = `Comandos de estudio:
   /pomodoro [iniciar [min]|pausar|reanudar|saltar|parar|estado]
   /cuaderno [nombre]                                 crear o elegir cuaderno
   /repasar                                           repasar tarjetas pendientes
-  /tarjetas [exportar|importar <archivo>]            resumen, exportar a Anki, importar
+  /anki [exportar|importar <archivo>]                tarjetas: resumen, exportar a Anki, importar
 Con Claude: /estudio:preguntar · /estudio:tarjetas · /estudio:guia · /estudio:quiz · /estudio:audio`
 
 const VERBOS: Record<string, acc.VerboPomodoro> = {
@@ -41,13 +41,22 @@ export const register: Register = (on, options) => {
     home = (await $.env.get('HOME')) ?? ''
     const h = hostOf($, home)
     host = h
-    await Promise.all([
+    acc.arranque.inicio = await $.clock.now()
+    // lo primero: el temporizador, para que nada de lo de abajo pueda impedirlo
+    try {
+      acc.arrancarLatido(h, cfg, 'session.start')
+    } catch (err) {
+      acc.arranque.errores.push(`latido: ${mensaje(err)}`)
+    }
+    // cada registro por separado: si uno es rechazado, los demás siguen
+    const nombres = ['/estudio', '/pomodoro', '/promodoro', '/cuaderno', '/repasar', '/anki', 'cuaderno_activo', 'guardar_tarjetas', 'diagnostico_pomodoro', 'leer_en_voz_alta']
+    const registros = await Promise.allSettled([
       $.command.register({ name: 'estudio', description: 'Abre el panel de estudio (Pomodoro, repaso, cuaderno, estadísticas)', argumentHint: '[pomodoro|repaso|cuaderno|stats|callar|ayuda]' }),
       $.command.register({ name: 'pomodoro', description: 'Controla el Pomodoro', argumentHint: ARG_POMODORO, immediate: true }),
       $.command.register({ name: 'promodoro', description: 'Igual que /pomodoro', argumentHint: ARG_POMODORO, immediate: true }),
       $.command.register({ name: 'cuaderno', description: 'Crea o elige el cuaderno de estudio activo', argumentHint: '[nombre]' }),
       $.command.register({ name: 'repasar', description: 'Repasa las tarjetas pendientes de hoy' }),
-      $.command.register({ name: 'tarjetas', description: 'Resumen de tarjetas; exportar a Anki o importar desde Anki/CSV', argumentHint: '[exportar|importar <archivo>]' }),
+      $.command.register({ name: 'anki', description: 'Resumen de tarjetas; exportarlas a Anki o importarlas desde Anki/CSV', argumentHint: '[exportar|importar <archivo>]' }),
       $.tool.register({
         name: 'cuaderno_activo',
         isDeferred: false,
@@ -101,27 +110,36 @@ export const register: Register = (on, options) => {
         },
       }),
     ])
-    const fallo = (que: string) => (err: unknown) => h.log(`estudio: ${que}: ${String(err)}`)
+    registros.forEach((r, i) => {
+      if (r.status === 'rejected') acc.arranque.errores.push(`${nombres[i] ?? i}: ${mensaje(r.reason)}`)
+    })
+    const fallo = (que: string) => (err: unknown) => {
+      acc.arranque.errores.push(`${que}: ${mensaje(err)}`)
+      h.log(`estudio: ${que}: ${String(err)}`)
+    }
     await acc.cargarStats(h, cfg).catch(fallo('estadísticas'))
     await acc.restaurarPomodoro(h).catch(fallo('pomodoro'))
     await acc.refrescarCuaderno(h, cfg).catch(fallo('cuaderno'))
     if (cfg.recordatorio) h.after(3000, () => void acc.recordatorio(h).catch(fallo('recordatorio')))
-    $.clock.every(1000, () => void acc.latido(h, cfg).catch(err => {
-      acc.pulso.ultimoError = String(err)
-      fallo('latido')(err)
-    }))
+    acc.arranque.fin = await $.clock.now()
     return started
+  })
+
+  // respaldo del temporizador en cada turno
+  on('turn.complete', ($, e, next) => {
+    void acc.vigilar(hostOf($, home), cfg).catch(() => undefined)
+    return next(e)
   })
 
   // ── Comandos ──────────────────────────────────────────────────────────────
 
-  on('command.run', { command: 'estudio' }, ($, e) => seguro(() => comandoEstudio($, e.args, cfg, home)))
-  on('command.run', { command: 'pomodoro' }, ($, e) => seguro(() => comandoPomodoro($, e.args, cfg, home)))
+  on('command.run', { command: 'estudio' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoEstudio($, e.args, cfg, home))))
+  on('command.run', { command: 'pomodoro' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoPomodoro($, e.args, cfg, home))))
   // alias para la errata más común
-  on('command.run', { command: 'promodoro' }, ($, e) => seguro(() => comandoPomodoro($, e.args, cfg, home)))
-  on('command.run', { command: 'cuaderno' }, ($, e) => seguro(() => comandoCuaderno($, e.args, cfg, home)))
-  on('command.run', { command: 'repasar' }, $ => seguro(() => comandoRepasar($, cfg, home)))
-  on('command.run', { command: 'tarjetas' }, ($, e) => seguro(() => comandoTarjetas($, e.args, home)))
+  on('command.run', { command: 'promodoro' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoPomodoro($, e.args, cfg, home))))
+  on('command.run', { command: 'cuaderno' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoCuaderno($, e.args, cfg, home))))
+  on('command.run', { command: 'repasar' }, $ => conVigilancia($, cfg, home, () => seguro(() => comandoRepasar($, cfg, home))))
+  on('command.run', { command: 'anki' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoTarjetas($, e.args, home))))
 
   // ── Herramientas para Claude ─────────────────────────────────────────────
 
@@ -254,11 +272,11 @@ async function comandoTarjetas($: EngineInterface, args: string, home: string) {
     case 'importar':
     case 'import': {
       const ruta = resto.join(' ').replace(/^["']|["']$/g, '')
-      if (ruta === '') return { text: 'Indica el archivo: /tarjetas importar <archivo.txt|.csv>' }
+      if (ruta === '') return { text: 'Indica el archivo: /anki importar <archivo.txt|.csv>' }
       return { text: await acc.importarAnki(h, ruta) }
     }
     default:
-      return { text: 'Usa: /tarjetas · /tarjetas exportar · /tarjetas importar <archivo>' }
+      return { text: 'Usa: /anki · /anki exportar · /anki importar <archivo>' }
   }
 }
 
@@ -267,4 +285,10 @@ async function abrirPanel(h: Host, cfg: Config, pestana?: Pestana): Promise<stri
   if ((await h.st.cuaderno.leer()) === null) await acc.refrescarCuaderno(h, cfg)
   const r = await h.openPane({ id: PANEL, title: 'Estudio', focus: true })
   return r.isPlaced ? 'Panel de estudio abierto.' : `El panel se abrirá cuando haya sitio (${r.reason}).`
+}
+
+/** Antes de cada comando: respaldo del temporizador, por si no está latiendo. */
+async function conVigilancia<T>($: EngineInterface, cfg: Config, home: string, fn: () => Promise<T>): Promise<T> {
+  await acc.vigilar(hostOf($, home), cfg).catch(() => undefined)
+  return fn()
 }

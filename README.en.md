@@ -5,6 +5,8 @@
 
 English · **[Español](README.md)**
 
+![Study pane in VS Code: Pomodoro ring, weekly pomodoros and activity map](docs/graficos.png)
+
 A plugin that turns Claude Code into your study space: **Pomodoro timer**, **spaced-repetition flashcards** and **NotebookLM-style source notebooks**. Claude studies with *your* notes and cites where every answer comes from.
 
 > The interface and commands are in Spanish (*estudio* = study). This page explains them in English.
@@ -40,7 +42,7 @@ or from a shell: `claude plugin install estudio --marketplace YuthramysI/claude-
 | `/pomodoro` · `/pomodoro 50` | Start or pause the timer · a 50-minute focus session |
 | `/pomodoro pausar\|reanudar\|saltar\|parar\|estado` | pause · resume · skip · stop · status |
 | `/repasar` | Review the cards due today |
-| `/tarjetas` · `exportar` · `importar <file>` | Card summary · export to Anki · import from Anki/CSV |
+| `/anki` · `exportar` · `importar <file>` | Card summary · export to Anki · import from Anki/CSV |
 | `/estudio:preguntar <question>` | Answer from your sources, with citations |
 | `/estudio:tarjetas [n]` | Generate n flashcards |
 | `/estudio:guia` | Study guide → `salidas/` |
@@ -60,7 +62,7 @@ The alarm uses `paplay` and the voice uses `spd-say`: `sudo apt install speech-d
 ```bash
 claude --plugin-dir .       # run Claude Code with this folder's plugin loaded
 claude plugin validate .
-claude plugin test .        # 33 tests
+claude plugin test .        # 40 tests
 ```
 
 ## 📄 License

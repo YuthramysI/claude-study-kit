@@ -124,18 +124,18 @@ test('un tarjetas.json dañado se recupera de la copia de seguridad', async ($, 
   expect([...archivos.keys()].some(k => k.includes('tarjetas.danado-'))).toBe(true)
 })
 
-test('/tarjetas exportar e importar (Anki)', async ($, on) => {
+test('/anki exportar e importar', async ($, on) => {
   const { archivos } = motor(on)
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await $.command.run({ command: 'cuaderno', args: 'idiomas', ...CMD })
   const ruta = '/home/prueba/estudio/idiomas'
   archivos.set('/home/prueba/Descargas/mazo.txt', '#separator:tab\nhello\thola\ncat\tgato\n')
-  const imp = await $.command.run({ command: 'tarjetas', args: 'importar ~/Descargas/mazo.txt', ...CMD })
+  const imp = await $.command.run({ command: 'anki', args: 'importar ~/Descargas/mazo.txt', ...CMD })
   expect(imp.text).toContain('Guardadas 2 tarjetas')
-  const exp = await $.command.run({ command: 'tarjetas', args: 'exportar', ...CMD })
+  const exp = await $.command.run({ command: 'anki', args: 'exportar', ...CMD })
   expect(exp.text).toContain('Exportadas 2 tarjetas')
   expect(archivos.get(`${ruta}/salidas/anki-idiomas.txt`)).toContain('hello\thola')
-  const resumen = await $.command.run({ command: 'tarjetas', args: '', ...CMD })
+  const resumen = await $.command.run({ command: 'anki', args: '', ...CMD })
   expect(resumen.text).toContain('2 tarjetas · 2 pendientes hoy')
 })
 
@@ -155,9 +155,13 @@ test('la pestaña Stats muestra racha y totales, en terminal y escritorio', asyn
       await ui.press({ key: 'nota-bien' })
     }
     await ui.press({ key: 'tab-stats' })
-    expect((await ui.find({ type: 'Text', text: /Racha/ }))?.text).toContain('Racha: 1 días')
-    expect((await ui.find({ type: 'Text', text: /^Hoy/ }))?.text).toContain('100 %')
-    expect(await ui.find({ type: 'Text', text: /1 aprendiendo/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /🔥 1/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^100 %$/ })).toBeDefined()
+    if (surface === 'terminal') {
+      expect(await ui.find({ type: 'Text', text: /1 aprendiendo/ })).toBeDefined()
+    } else {
+      expect(await ui.find({ type: 'Text', text: /Tarjetas de «historia»/ })).toBeDefined()
+    }
     await ui.unmount()
   }
 })

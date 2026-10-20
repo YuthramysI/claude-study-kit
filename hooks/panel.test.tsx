@@ -39,11 +39,17 @@ test('el panel controla el Pomodoro y avisa si no hay cuaderno, en terminal y es
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANEL, surface })
 
-    expect((await ui.find({ type: 'Text', text: /25:00/ }))?.text).toContain('25:00')
+    // terminal: reloj en dígitos grandes y fase en texto; escritorio: anillo SVG con el tiempo en su alt
+    if (surface === 'terminal') {
+      expect((await ui.find({ type: 'Text', text: /┏━┓/ }))?.text).toContain('┏━┓')
+      expect(await ui.find({ type: 'Text', text: /LISTO · ENFOQUE/ })).toBeDefined()
+    } else {
+      expect(String((await ui.find({ type: 'Svg' }))?.props.alt)).toContain('25:00')
+    }
     await ui.press({ key: 'iniciar' })
     expect(await ui.find({ key: 'pausar' })).toBeDefined()
     await ui.press({ key: 'pausar' })
-    expect(await ui.find({ type: 'Text', text: /⏸/ })).toBeDefined()
+    expect(await ui.find({ key: 'reanudar' })).toBeDefined()
     await ui.press({ key: 'parar' })
     expect(await ui.find({ key: 'iniciar' })).toBeDefined()
 
@@ -96,4 +102,29 @@ test('/pomodoro sin argumentos inicia o reanuda, pero nunca pausa', async ($, on
   expect((await $.command.run({ command: 'promodoro', args: '', ...cmd })).text).toBe('🍅 25:00 · enfoque 1/4')
   await $.command.run({ command: 'pomodoro', args: 'pausar', ...cmd })
   expect((await $.command.run({ command: 'pomodoro', args: '', ...cmd })).text).not.toContain('pausa')
+})
+
+test('si Claude Code rechaza un comando al arrancar, el Pomodoro sigue avisando al terminar', async ($, on) => {
+  const clock = mock.clock(on, { now: T0 })
+  mock.store(on)
+  mock.env(on, { HOME: '/home/prueba' })
+  on('command.register', (_, e) => (e.name === 'anki' ? { deny: 'choca con una skill' } : { value: { command: e.name } }))
+  on('tool.register', (_, e) => ({ value: { tool: `mcp__estudio__${e.name}` } }))
+  on('fs.exists', () => ({ value: false }))
+  on('ui.status', () => ({ value: undefined }))
+  const avisos: string[] = []
+  on('ui.toast', (_, e) => {
+    avisos.push(e.text)
+    return { value: undefined }
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  const cmd = { origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } } as const
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'pomodoro', args: '1', ...cmd })
+  await clock.advance(62_000)
+
+  expect(avisos.some(a => a.includes('Pomodoro terminado'))).toBe(true)
+  const diag = await $.tool.call({ tool: 'mcp__estudio__diagnostico_pomodoro' })
+  expect(String(diag.result)).toContain('/anki')
 })

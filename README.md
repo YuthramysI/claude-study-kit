@@ -2,24 +2,30 @@
 
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-green.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
-[![Tests](https://img.shields.io/badge/tests-33_pasan-brightgreen.svg)](#desarrollo)
+[![Tests](https://img.shields.io/badge/tests-40_pasan-brightgreen.svg)](#desarrollo)
 
 **[English](README.en.md)** · Español
 
 Un plugin que convierte Claude Code en tu espacio de estudio: **Pomodoro**, **tarjetas con repaso espaciado** y **cuadernos de fuentes al estilo NotebookLM**. Claude estudia contigo usando *tus* apuntes y cita de dónde saca cada respuesta.
 
+![Panel de estudio en VS Code: anillo del Pomodoro, pomodoros de la semana y mapa de actividad](docs/graficos.png)
+
+<sub>El panel en VS Code y en la app de escritorio (datos de ejemplo). En la terminal se dibuja así:</sub>
+
 ```
-╭─ Estudio ─────────────────────────────────────────╮
-│ 🍅 Pomodoro  🃏 Repaso  📚 Cuaderno  📊 Stats     │
-│                                                   │
-│ 🍅 ENFOQUE  ·  ronda 2/4                          │
-│ 18:42                                             │
-│ ▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░              │
-│                                                   │
-│ [ Pausar ] [ Saltar ] [ Parar ]                   │
-│                                                   │
-│ Hoy: 3 pomodoros 🍅🍅🍅  ·  🔥 5 días             │
-╰───────────────────────────────────────────────────╯
+🍅 Pomodoro  🃏 Repaso  📚 Cuaderno  📊 Stats
+──────────────────────────────────────────────
+🍅 ENFOQUE   ● ○ ○ ○
+
+┏━┓ ┏━╸   ┏━┓ ┏━┓
+┃ ┃ ┗━┓ ╹ ┃ ┃ ┃ ┃
+┗━┛ ┗━┛ ╹ ┗━┛ ┗━┛
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━──────────
+
+[ ⏸ Pausar ] [ ⏭ Saltar ] [ ⏹ Parar ]
+Después: descanso · 5 min
+Hoy: 3 pomodoros · 1 h 15 min  ·  🔥 5 días
 ```
 
 ## ✨ Qué hace
@@ -30,7 +36,7 @@ Un plugin que convierte Claude Code en tu espacio de estudio: **Pomodoro**, **ta
 | 🃏 **Tarjetas SM-2** | Claude crea flashcards a partir de tus fuentes; tú las repasas en el panel (`m` muestra la respuesta, `1`–`4` califica). El algoritmo SuperMemo-2 programa cada repaso. |
 | 📚 **Cuadernos** | Una carpeta por tema con tus PDFs, apuntes o fotos. Claude responde **solo con tus fuentes**, cita `[archivo, p. X]` y avisa cuando algo no está en ellas. |
 | 📝 **Guía, quiz y audio** | Guía de estudio con glosario y FAQ, quiz interactivo (las preguntas que fallas se convierten en tarjetas) y un resumen tipo podcast leído en voz alta. |
-| 📊 **Estadísticas** | Racha de días, pomodoros y horas de enfoque, % de aciertos, gráfico de los últimos 7 y 28 días, y tarjetas nuevas, en aprendizaje o maduras. |
+| 📊 **Estadísticas** | Racha de días, pomodoros y horas de enfoque, % de aciertos, barras de la semana, mapa de actividad de 16 semanas (estilo GitHub) y tarjetas nuevas, en aprendizaje o maduras. |
 | 🔁 **Anki** | Exporta tus tarjetas a Anki o importa mazos de Anki y CSV. |
 | 🛡️ **A prueba de fallos** | Copia de seguridad automática de las tarjetas (una semana de historia) y recuperación si `tarjetas.json` se daña. |
 
@@ -77,9 +83,9 @@ En la app de escritorio: **+** junto al cuadro de texto → **Plugins** → **Ad
 | `/pomodoro pausar\|reanudar\|saltar\|parar\|estado` | Control del temporizador (también vale `/promodoro`) |
 | `/cuaderno` · `/cuaderno <nombre>` | Lista los cuadernos · crea o activa uno |
 | `/repasar` | Repaso de las tarjetas pendientes |
-| `/tarjetas` | Resumen: total, pendientes y etapas |
-| `/tarjetas exportar` | Crea `salidas/anki-<cuaderno>.txt` para importarlo en Anki |
-| `/tarjetas importar <archivo>` | Importa de Anki (texto con tabuladores), CSV (`,` o `;`) o líneas `frente :: reverso` |
+| `/anki` | Resumen de tus tarjetas: total, pendientes y etapas |
+| `/anki exportar` | Crea `salidas/anki-<cuaderno>.txt` para importarlo en Anki |
+| `/anki importar <archivo>` | Importa de Anki (texto con tabuladores), CSV (`,` o `;`) o líneas `frente :: reverso` |
 
 ### Con Claude (skills)
 
@@ -142,7 +148,7 @@ En `/config` → **estudio**:
 git clone https://github.com/YuthramysI/claude-study-kit && cd claude-study-kit
 claude --plugin-dir .         # ejecuta Claude Code con el plugin cargado desde esta carpeta
 claude plugin validate .      # manifiesto y hooks
-claude plugin test .          # 33 tests: SM-2, Pomodoro, estadísticas, Anki, panel, recuperación
+claude plugin test .          # 40 tests: SM-2, Pomodoro, estadísticas, Anki, panel, recuperación
 ```
 
 | Archivo | Contenido |

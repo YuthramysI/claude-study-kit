@@ -64,6 +64,34 @@ export async function restaurarPomodoro(h: Host) {
 /** Lo que el diagnóstico cuenta del temporizador de este módulo. */
 export const pulso = { latidos: 0, ultimo: 0, fases: 0, ultimoError: '' }
 
+/** Cómo fue el arranque de este módulo (session.start). */
+export const arranque = { inicio: 0, fin: 0, latido: 'sin arrancar', errores: [] as string[] }
+
+let temporizador: { cancel: () => void } | null = null
+
+/** Arranca (o rearranca) el latido de un segundo con el Host dado. */
+export function arrancarLatido(h: Host, cfg: Config, origen: string) {
+  temporizador?.cancel()
+  temporizador = h.every(1000, () => {
+    void latido(h, cfg).catch(err => {
+      pulso.ultimoError = String(err)
+    })
+  })
+  arranque.latido = origen
+}
+
+/**
+ * Respaldo del temporizador, llamado desde cualquier comando, herramienta o
+ * turno: si el latido lleva más de 5 s sin llegar, hace uno a mano (así una
+ * fase vencida avisa igual) y vuelve a arrancar el temporizador.
+ */
+export async function vigilar(h: Host, cfg: Config) {
+  const ahora = await h.now()
+  if (ahora - pulso.ultimo <= 5000) return
+  await latido(h, cfg)
+  arrancarLatido(h, cfg, `respaldo (${new Date(ahora).toLocaleTimeString()})`)
+}
+
 /** Un latido por segundo: mueve el reloj y cambia de fase al llegar a cero. */
 export async function latido(h: Host, cfg: Config) {
   pulso.latidos++
@@ -125,12 +153,17 @@ export async function probarAvisos(h: Host, cfg: Config): Promise<string> {
     err => `no se pudo ejecutar paplay: ${String(err)}`,
   )
   const hace = pulso.ultimo === 0 ? 'nunca' : `hace ${Math.round((ahora - pulso.ultimo) / 1000)} s`
+  const arr = arranque.inicio === 0
+    ? 'session.start no se ejecutó en este módulo'
+    : `session.start ${arranque.fin === 0 ? 'NO terminó' : 'terminó'}; latido: ${arranque.latido}` +
+      (arranque.errores.length > 0 ? `; fallos: ${arranque.errores.join(' · ')}` : '; sin fallos')
   return [
     'Diagnóstico de avisos:',
     `  sonido: ${sonido}${cfg.sonido ? '' : ' (la alarma está desactivada en /config)'}`,
     `  notificación del sistema: ${notif}`,
     '  aviso flotante y línea en el chat: enviados (¿ves «🔔 Prueba de aviso» arriba?)',
     `  temporizador: ${pulso.latidos} latidos, último ${hace}; ${pulso.fases} cambios de fase en este módulo${pulso.ultimoError ? `; último error: ${pulso.ultimoError}` : ''}`,
+    `  arranque: ${arr}`,
     `  pomodoro: ${describirPomodoro(p, ahora)}`,
   ].join('\n')
 }
@@ -288,7 +321,7 @@ export async function textoTarjetas(h: Host): Promise<string> {
   const n = pendientes(tarjetas, fecha(await h.now())).length
   return `«${info.nombre}»: ${tarjetas.length} tarjetas · ${n} pendientes hoy\n` +
     `  nuevas ${e.nuevas} · aprendiendo ${e.aprendiendo} · maduras ${e.maduras}\n` +
-    'Más: /tarjetas exportar · /tarjetas importar <archivo>'
+    'Más: /anki exportar · /anki importar <archivo>'
 }
 
 // ── Voz ─────────────────────────────────────────────────────────────────────
