@@ -26,10 +26,10 @@ Everything stays on your machine: the plugin makes no network calls.
 ## 🚀 Install
 
 ```
-/plugin install estudio --marketplace YuthramysI/estudio
+/plugin install estudio --marketplace YuthramysI/claude-study-kit
 ```
 
-or from a shell: `claude plugin install estudio --marketplace YuthramysI/estudio`.
+or from a shell: `claude plugin install estudio --marketplace YuthramysI/claude-study-kit`.
 
 ## 🏁 Quick start
 

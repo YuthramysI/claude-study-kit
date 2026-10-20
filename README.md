@@ -43,16 +43,16 @@ Necesitas [Claude Code](https://docs.claude.com/en/docs/claude-code). Está prob
 En una sesión de Claude Code, en la terminal:
 
 ```
-/plugin install estudio --marketplace YuthramysI/estudio
+/plugin install estudio --marketplace YuthramysI/claude-study-kit
 ```
 
 Responde `y` para añadir el marketplace y elige el ámbito (usuario). Desde una shell:
 
 ```bash
-claude plugin install estudio --marketplace YuthramysI/estudio
+claude plugin install estudio --marketplace YuthramysI/claude-study-kit
 ```
 
-En la app de escritorio: **+** junto al cuadro de texto → **Plugins** → **Add marketplace** `YuthramysI/estudio` → **Add plugin**.
+En la app de escritorio: **+** junto al cuadro de texto → **Plugins** → **Add marketplace** `YuthramysI/claude-study-kit` → **Add plugin**.
 
 ## 🏁 Primeros pasos
 
@@ -139,7 +139,7 @@ En `/config` → **estudio**:
 ## 🛠️ Desarrollo
 
 ```bash
-git clone https://github.com/YuthramysI/estudio && cd estudio
+git clone https://github.com/YuthramysI/claude-study-kit && cd claude-study-kit
 claude --plugin-dir .         # ejecuta Claude Code con el plugin cargado desde esta carpeta
 claude plugin validate .      # manifiesto y hooks
 claude plugin test .          # 33 tests: SM-2, Pomodoro, estadísticas, Anki, panel, recuperación
