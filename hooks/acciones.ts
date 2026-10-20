@@ -1,0 +1,300 @@
+// Lo que hacen los comandos, los botones del panel y las herramientas.
+import type { DiaStats, Pomodoro, Tarjeta } from '../types'
+import * as anki from './anki'
+import * as cuadernos from './cuadernos'
+import type { Config } from './estado'
+import type { Host } from './host'
+import * as pomo from './pomodoro'
+import { fecha, fusionar, pendientes, programar } from './srs'
+import type { Nota } from './srs'
+import * as stats from './stats'
+
+const CLAVE_STATS = 'estadisticas'
+const CLAVE_HISTORIAL_ANTIGUO = 'historialPomodoros'
+const CLAVE_POMODORO = 'pomodoro'
+
+// ── Pomodoro ────────────────────────────────────────────────────────────────
+
+export type VerboPomodoro = 'iniciar' | 'pausar' | 'reanudar' | 'alternar' | 'saltar' | 'parar'
+
+export async function pomodoro(h: Host, cfg: Config, verbo: VerboPomodoro, minutos?: number): Promise<string> {
+  const ahora = await h.now()
+  const p = await h.st.pomodoro.cambiar(p => {
+    switch (verbo) {
+      case 'iniciar':
+        return p.estado === 'pausado' && minutos === undefined
+          ? pomo.reanudar(p, ahora)
+          : pomo.iniciar(p, ahora, cfg.duraciones, minutos)
+      case 'pausar':
+        return pomo.pausar(p, ahora)
+      case 'reanudar':
+        return pomo.reanudar(p, ahora)
+      case 'alternar':
+        if (p.estado === 'corriendo') return pomo.pausar(p, ahora)
+        if (p.estado === 'pausado') return pomo.reanudar(p, ahora)
+        return pomo.iniciar(p, ahora, cfg.duraciones, minutos)
+      case 'saltar':
+        return pomo.siguiente(p, ahora, cfg.duraciones, cfg.autoIniciar).pomodoro
+      case 'parar':
+        return pomo.parar(p)
+    }
+  })
+  await h.storeSet(CLAVE_POMODORO, p)
+  await h.st.ahora.cambiar(() => ahora)
+  h.status(pomo.lineaEstado(p, ahora))
+  if (verbo === 'saltar') return `Saltado. Ahora: ${pomo.NOMBRE_FASE[p.fase]}${p.estado === 'parado' ? ' (pulsa iniciar)' : ''}.`
+  return describirPomodoro(p, ahora)
+}
+
+export function describirPomodoro(p: Pomodoro, ahora: number): string {
+  if (p.estado === 'parado') return `Pomodoro parado. Siguiente: ${pomo.NOMBRE_FASE[p.fase]}.`
+  return pomo.lineaEstado(p, ahora) ?? ''
+}
+
+/** Recupera el pomodoro de la sesión anterior, si sigue en marcha o en pausa. */
+export async function restaurarPomodoro(h: Host) {
+  const ahora = await h.now()
+  const p = pomo.restaurar(await h.storeGet(CLAVE_POMODORO), ahora)
+  await h.st.pomodoro.cambiar(() => p)
+  await h.st.ahora.cambiar(() => ahora)
+  h.status(pomo.lineaEstado(p, ahora))
+}
+
+/** Un latido por segundo: mueve el reloj y cambia de fase al llegar a cero. */
+export async function latido(h: Host, cfg: Config) {
+  const actual = await h.st.pomodoro.leer()
+  if (actual.estado !== 'corriendo') return
+  const ahora = await h.now()
+  if (!pomo.haTerminado(actual, ahora)) {
+    await h.st.ahora.cambiar(() => ahora)
+    h.status(pomo.lineaEstado(actual, ahora))
+    return
+  }
+  let completo = false
+  let cambio = false
+  let minutos = 0
+  const p = await h.st.pomodoro.cambiar(p => {
+    cambio = pomo.haTerminado(p, ahora)
+    if (!cambio) return p
+    minutos = p.duracionMs / 60_000
+    const s = pomo.siguiente(p, ahora, cfg.duraciones, cfg.autoIniciar)
+    completo = s.completoEnfoque
+    return s.pomodoro
+  })
+  if (!cambio) return
+  await h.storeSet(CLAVE_POMODORO, p)
+  await h.st.ahora.cambiar(() => ahora)
+  h.status(pomo.lineaEstado(p, ahora))
+  if (completo) await sumar(h, ahora, { pomodoros: 1, minutos })
+  const aviso = completo
+    ? `¡Pomodoro terminado! 🍅 Toca ${pomo.NOMBRE_FASE[p.fase]} de ${Math.round(p.duracionMs / 60_000)} min.`
+    : p.estado === 'corriendo'
+      ? `¡Fin del descanso! Empieza el siguiente pomodoro (${Math.round(p.duracionMs / 60_000)} min).`
+      : '¡Fin del descanso! Cuando quieras, inicia el siguiente pomodoro.'
+  h.toast(aviso, 8000)
+  void h.notify(aviso).catch(() => undefined)
+  if (cfg.sonido) campana(h, cfg)
+}
+
+/** Alarma: la campana varias veces; paplay donde lo hay (Linux), si no el reproductor del motor (macOS). */
+export function campana(h: Host, cfg: Pick<Config, 'toquesAlarma' | 'volumen'>) {
+  const archivo = `${h.pluginRoot}/sounds/campana.wav`
+  const volumen = Math.round((cfg.volumen / 100) * 65536)
+  const ganancia = cfg.volumen / 100
+  const tocar = () =>
+    h
+      .run(['paplay', `--volume=${volumen}`, archivo], { timeoutMs: 10_000 })
+      .then(r => (r.exitCode === 0 ? undefined : h.play('sounds/campana.wav', ganancia)))
+      .catch(() => h.play('sounds/campana.wav', ganancia).catch(() => undefined))
+  h.after(1, () => {
+    void (async () => {
+      for (let i = 0; i < cfg.toquesAlarma; i++) await tocar()
+    })()
+  })
+}
+
+// ── Estadísticas ────────────────────────────────────────────────────────────
+
+/** Carga las estadísticas del almacén (y convierte el historial de la versión 0.1). */
+export async function cargarStats(h: Host, cfg: Config) {
+  let s = stats.sanear(await h.storeGet(CLAVE_STATS))
+  if (Object.keys(s).length === 0) {
+    const antiguo = await h.storeGet(CLAVE_HISTORIAL_ANTIGUO)
+    if (antiguo !== undefined) {
+      s = stats.migrar(antiguo, cfg.duraciones.enfoque)
+      await h.storeSet(CLAVE_STATS, s)
+    }
+  }
+  await h.st.stats.cambiar(() => s)
+}
+
+async function sumar(h: Host, ahora: number, cambio: Partial<DiaStats>) {
+  const s = await h.st.stats.cambiar(s => stats.registrar(s, fecha(ahora), cambio))
+  await h.storeSet(CLAVE_STATS, s)
+}
+
+export async function textoStats(h: Host): Promise<string> {
+  const s = await h.st.stats.leer()
+  const hoy = fecha(await h.now())
+  const dia = s[hoy] ?? stats.VACIO
+  const semana = stats.totales(s, stats.ultimosDias(s, hoy, 7)[0]?.dia)
+  const total = stats.totales(s)
+  const ultimos = stats.ultimosDias(s, hoy, 28)
+  return [
+    `🔥 Racha: ${stats.racha(s, hoy)} días (mejor: ${stats.mejorRacha(s)})`,
+    `Hoy: ${dia.pomodoros} 🍅 · ${stats.horas(dia.minutos)} · ${dia.repasos} tarjetas (${stats.porcentaje(dia.aciertos, dia.repasos)} aciertos)`,
+    `7 días: ${semana.pomodoros} 🍅 · ${stats.horas(semana.minutos)} · ${semana.repasos} tarjetas`,
+    `Total: ${total.pomodoros} 🍅 · ${stats.horas(total.minutos)} · ${total.repasos} tarjetas`,
+    `28 días: ${stats.sparkline(ultimos.map(d => d.datos.minutos + d.datos.repasos))}`,
+  ].join('\n')
+}
+
+// ── Cuadernos ───────────────────────────────────────────────────────────────
+
+export async function abrirCuaderno(h: Host, cfg: Config, nombre: string) {
+  await cuadernos.crear(h, cuadernos.raiz(h, cfg.carpeta), nombre)
+  await cuadernos.fijarActivo(h, nombre)
+  return refrescarCuaderno(h, cfg)
+}
+
+/** Vuelve a leer el cuaderno activo del disco (fuentes y tarjetas). */
+export async function refrescarCuaderno(h: Host, cfg: Config) {
+  const nombre = await cuadernos.activo(h)
+  const base = cuadernos.raiz(h, cfg.carpeta)
+  if (nombre === undefined || !(await h.fs.exists(`${base}/${nombre}`))) {
+    await h.st.cuaderno.cambiar(() => null)
+    await h.st.tarjetas.cambiar(() => [])
+    return null
+  }
+  const info = await cuadernos.info(h, base, nombre)
+  const lectura = await cuadernos.leerTarjetas(h, info.ruta)
+  if (lectura.aviso !== undefined) h.toast(lectura.aviso, 15_000)
+  await h.st.cuaderno.cambiar(() => info)
+  await h.st.tarjetas.cambiar(() => lectura.tarjetas)
+  return info
+}
+
+export async function textoCuadernos(h: Host, cfg: Config): Promise<string> {
+  const base = cuadernos.raiz(h, cfg.carpeta)
+  const lista = await cuadernos.listar(h, base)
+  const activo = await cuadernos.activo(h)
+  if (lista.length === 0) return `Aún no hay cuadernos en ${base}. Crea uno con /cuaderno <nombre>.`
+  const filas = lista.map(n => `${n === activo ? '▶' : ' '} ${n}`).join('\n')
+  return `Cuadernos en ${base}:\n${filas}\n\nCambia con /cuaderno <nombre>.`
+}
+
+/** Al abrir sesión: cuántas tarjetas tocan hoy. */
+export async function recordatorio(h: Host) {
+  const info = await h.st.cuaderno.leer()
+  if (info === null) return
+  const n = pendientes(await h.st.tarjetas.leer(), fecha(await h.now())).length
+  if (n > 0) h.toast(`🃏 Tienes ${n} ${n === 1 ? 'tarjeta pendiente' : 'tarjetas pendientes'} en «${info.nombre}» · /repasar`, 10_000)
+}
+
+// ── Tarjetas ────────────────────────────────────────────────────────────────
+
+async function cuadernoActivo(h: Host) {
+  const info = await h.st.cuaderno.leer()
+  if (info === null) throw new Error('No hay cuaderno activo. Crea o elige uno con /cuaderno <nombre>.')
+  return info
+}
+
+export async function agregarTarjetas(h: Host, nuevas: readonly anki.TarjetaSimple[]): Promise<string> {
+  const info = await cuadernoActivo(h)
+  const ahora = await h.now()
+  const { tarjetas: existentes } = await cuadernos.leerTarjetas(h, info.ruta)
+  const r = fusionar(existentes, nuevas, ahora)
+  await cuadernos.guardarTarjetas(h, info.ruta, r.tarjetas, ahora)
+  await h.st.tarjetas.cambiar(() => r.tarjetas)
+  return `Guardadas ${r.agregadas} tarjetas en «${info.nombre}» (${r.tarjetas.length} en total` +
+    `${r.repetidas > 0 ? `, ${r.repetidas} repetidas o vacías omitidas` : ''}). Se repasan con /repasar.`
+}
+
+export async function calificar(h: Host, id: string, nota: Nota) {
+  const info = await h.st.cuaderno.leer()
+  if (info === null) return
+  const ahora = await h.now()
+  const tarjetas: Tarjeta[] = await h.st.tarjetas.cambiar(ts =>
+    ts.map(t => (t.id === id ? programar(t, nota, ahora) : t)),
+  )
+  await h.st.repaso.cambiar(r => ({ mostrarReverso: false, hechasHoy: r.hechasHoy + 1 }))
+  await sumar(h, ahora, { repasos: 1, aciertos: nota === 'otra' ? 0 : 1 })
+  await cuadernos.guardarTarjetas(h, info.ruta, tarjetas, ahora)
+  if (pendientes(tarjetas, fecha(ahora)).length === 0) h.toast('¡Repaso de hoy completado! 🎉')
+}
+
+export async function exportarAnki(h: Host): Promise<string> {
+  const info = await cuadernoActivo(h)
+  const tarjetas = await h.st.tarjetas.leer()
+  if (tarjetas.length === 0) return `«${info.nombre}» aún no tiene tarjetas que exportar.`
+  const destino = `${info.ruta}/salidas/anki-${info.nombre.replace(/\s+/g, '-')}.txt`
+  await h.fs.write(destino, anki.exportar(tarjetas, info.nombre))
+  return `Exportadas ${tarjetas.length} tarjetas a:\n  ${destino}\nEn Anki: Archivo → Importar → elige ese archivo (el mazo se llama «${info.nombre}»).`
+}
+
+export async function importarAnki(h: Host, ruta: string): Promise<string> {
+  const info = await cuadernoActivo(h)
+  const archivo = ruta.startsWith('~/') ? h.home + ruta.slice(1) : ruta.startsWith('/') ? ruta : `${info.ruta}/${ruta}`
+  if (!(await h.fs.exists(archivo))) return `No encuentro ${archivo}.`
+  const r = anki.importar(await h.fs.read(archivo))
+  if (r.tarjetas.length === 0) return `No encontré tarjetas en ${archivo} (se esperan dos columnas: frente y reverso, separadas por tabulador, «;» o «,»).`
+  const resumen = await agregarTarjetas(h, r.tarjetas)
+  return r.ignoradas > 0 ? `${resumen}\n${r.ignoradas} líneas sin frente o reverso se ignoraron.` : resumen
+}
+
+export async function textoTarjetas(h: Host): Promise<string> {
+  const info = await cuadernoActivo(h)
+  const tarjetas = await h.st.tarjetas.leer()
+  const e = stats.etapas(tarjetas)
+  const n = pendientes(tarjetas, fecha(await h.now())).length
+  return `«${info.nombre}»: ${tarjetas.length} tarjetas · ${n} pendientes hoy\n` +
+    `  nuevas ${e.nuevas} · aprendiendo ${e.aprendiendo} · maduras ${e.maduras}\n` +
+    'Más: /tarjetas exportar · /tarjetas importar <archivo>'
+}
+
+// ── Voz ─────────────────────────────────────────────────────────────────────
+
+let turnoVoz = 0
+
+/** Trozos de menos de `max` caracteres, cortados en fin de frase. */
+export function trozos(texto: string, max = 3500): string[] {
+  const salida: string[] = []
+  let actual = ''
+  for (const frase of texto.replace(/\s+/g, ' ').split(/(?<=[.!?…:;])\s+/)) {
+    if ((actual + ' ' + frase).length > max && actual !== '') {
+      salida.push(actual)
+      actual = ''
+    }
+    actual = actual === '' ? frase : `${actual} ${frase}`
+    while (actual.length > max) {
+      salida.push(actual.slice(0, max))
+      actual = actual.slice(max)
+    }
+  }
+  if (actual.trim() !== '') salida.push(actual)
+  return salida
+}
+
+/** Lee en voz alta sin bloquear: spd-say en Linux, o el sintetizador del sistema. */
+export function hablar(h: Host, texto: string) {
+  const mio = ++turnoVoz
+  h.after(1, () => {
+    void (async () => {
+      for (const t of trozos(texto)) {
+        if (mio !== turnoVoz) return
+        const r = await h.run(['spd-say', '-w', '-l', 'es', t], { timeoutMs: 600_000 }).catch(() => undefined)
+        if (r?.exitCode === 0) continue
+        const ok = await h.speak(t).then(() => true, () => false)
+        if (!ok) {
+          h.toast('No encontré un sintetizador de voz (instala speech-dispatcher o espeak-ng).')
+          return
+        }
+      }
+    })()
+  })
+}
+
+export async function callar(h: Host) {
+  turnoVoz++
+  await h.run(['spd-say', '-C'], { timeoutMs: 5000 }).catch(() => undefined)
+}

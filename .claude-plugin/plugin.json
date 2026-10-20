@@ -1,0 +1,79 @@
+{
+  "name": "estudio",
+  "version": "1.0.0",
+  "description": "Estudia dentro de Claude Code: Pomodoro, tarjetas con repaso espaciado y cuadernos de fuentes al estilo NotebookLM (preguntas con citas, guía, quiz y resumen en audio).",
+  "author": {
+    "name": "Yuthramys Ibarra",
+    "url": "https://github.com/YuthramysI"
+  },
+  "homepage": "https://github.com/YuthramysI/estudio#readme",
+  "repository": "https://github.com/YuthramysI/estudio",
+  "license": "MIT",
+  "keywords": [
+    "estudio",
+    "study",
+    "pomodoro",
+    "flashcards",
+    "spaced-repetition",
+    "anki",
+    "notebooklm",
+    "productividad"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "carpeta": {
+      "type": "string",
+      "title": "Carpeta de estudio",
+      "description": "Donde viven los cuadernos (una subcarpeta por tema). ~ es tu carpeta personal.",
+      "default": "~/estudio"
+    },
+    "minutosEnfoque": {
+      "type": "number",
+      "title": "Minutos de enfoque",
+      "description": "Duración de cada pomodoro.",
+      "default": 25
+    },
+    "minutosDescanso": {
+      "type": "number",
+      "title": "Minutos de descanso",
+      "description": "Descanso corto entre pomodoros.",
+      "default": 5
+    },
+    "minutosDescansoLargo": {
+      "type": "number",
+      "title": "Minutos de descanso largo",
+      "description": "Descanso tras cada 4 pomodoros.",
+      "default": 15
+    },
+    "sonido": {
+      "type": "boolean",
+      "title": "Alarma al terminar",
+      "description": "Toca una campana al terminar cada fase del Pomodoro.",
+      "default": true
+    },
+    "toquesAlarma": {
+      "type": "number",
+      "title": "Toques de la alarma",
+      "description": "Cuántas veces suena la campana al terminar una fase (1-10).",
+      "default": 3
+    },
+    "volumen": {
+      "type": "number",
+      "title": "Volumen de la alarma",
+      "description": "De 0 a 100.",
+      "default": 80
+    },
+    "autoIniciar": {
+      "type": "boolean",
+      "title": "Iniciar solo el siguiente pomodoro",
+      "description": "Al terminar el descanso, empieza el siguiente enfoque sin esperar a que lo inicies.",
+      "default": false
+    },
+    "recordatorio": {
+      "type": "boolean",
+      "title": "Recordar tarjetas pendientes",
+      "description": "Al abrir una sesión, avisa de cuántas tarjetas tienes que repasar hoy.",
+      "default": true
+    }
+  }
+}

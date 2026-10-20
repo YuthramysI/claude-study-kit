@@ -1,0 +1,14 @@
+{
+  "name": "estudio",
+  "description": "Plugin de estudio para Claude Code: Pomodoro, tarjetas SM-2 y cuadernos de fuentes.",
+  "owner": {
+    "name": "Yuthramys Ibarra"
+  },
+  "plugins": [
+    {
+      "name": "estudio",
+      "source": "./",
+      "description": "Pomodoro, tarjetas con repaso espaciado y cuadernos de fuentes al estilo NotebookLM, dentro de Claude Code."
+    }
+  ]
+}
