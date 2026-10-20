@@ -4,6 +4,7 @@ import * as anki from './anki'
 import * as cuadernos from './cuadernos'
 import type { Config } from './estado'
 import type { Host } from './host'
+import * as pdf from './pdf'
 import * as pomo from './pomodoro'
 import { fecha, fusionar, pendientes, programar } from './srs'
 import type { Nota } from './srs'
@@ -322,6 +323,85 @@ export async function textoTarjetas(h: Host): Promise<string> {
   return `«${info.nombre}»: ${tarjetas.length} tarjetas · ${n} pendientes hoy\n` +
     `  nuevas ${e.nuevas} · aprendiendo ${e.aprendiendo} · maduras ${e.maduras}\n` +
     'Más: /anki exportar · /anki importar <archivo>'
+}
+
+// ── PDF de repaso ───────────────────────────────────────────────────────────
+
+/** Navegadores que saben imprimir a PDF sin ventana, en el orden en que se prueban. */
+const NAVEGADORES = [
+  'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge', 'brave-browser',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+  '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+]
+
+const LIMITE_DOCUMENTO = 1_000_000
+
+/**
+ * Genera salidas/repaso-<cuaderno>-<fecha>.pdf: portada con estadísticas,
+ * tarjetas, todo lo de salidas/ (guías, quizzes, guiones) y tarjetas para
+ * recortar. Sin navegador, deja el HTML para imprimirlo a mano.
+ */
+export async function generarPdf(h: Host, cfg: Config, abrir = true): Promise<string> {
+  await refrescarCuaderno(h, cfg)
+  const info = await cuadernoActivo(h)
+  const ahora = await h.now()
+  const hoy = fecha(ahora)
+  const carpeta = `${info.ruta}/salidas`
+
+  const documentos: { archivo: string; markdown: string }[] = []
+  const omitidos: string[] = []
+  if (await h.fs.exists(carpeta)) {
+    const entradas = (await h.fs.list(carpeta))
+      .filter(e => e.kind === 'file' && /\.(md|markdown)$/i.test(e.name) && !e.name.startsWith('.'))
+      .sort((a, b) => a.name.localeCompare(b.name))
+    for (const e of entradas) {
+      if (e.size > LIMITE_DOCUMENTO) {
+        omitidos.push(e.name)
+        continue
+      }
+      documentos.push({ archivo: e.name, markdown: await h.fs.read(`${carpeta}/${e.name}`) })
+    }
+  }
+
+  const tarjetas = await h.st.tarjetas.leer()
+  const html = pdf.documentoRepaso({ cuaderno: info, hoy, tarjetas, stats: await h.st.stats.leer(), documentos })
+  const nombre = `repaso-${info.nombre.replace(/\s+/g, '-')}-${hoy}`
+  const rutaHtml = `${carpeta}/${nombre}.html`
+  const rutaPdf = `${carpeta}/${nombre}.pdf`
+  await h.fs.write(rutaHtml, html)
+
+  const contenido = `${tarjetas.length} tarjetas · ${documentos.length} documentos` +
+    `${tarjetas.length > 0 ? ` · ${Math.ceil(tarjetas.length / 10) * 2} hojas para recortar` : ''}` +
+    `${omitidos.length > 0 ? ` (omitidos por grandes: ${omitidos.join(', ')})` : ''}`
+
+  const perfil = '/tmp/estudio-pdf-navegador'
+  const url = `file://${encodeURI(rutaHtml)}`
+  for (const nav of NAVEGADORES) {
+    const r = await h
+      .run([nav, '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
+        `--user-data-dir=${perfil}`, '--no-pdf-header-footer', '--print-to-pdf-no-header',
+        '--virtual-time-budget=3000', `--print-to-pdf=${rutaPdf}`, url], { timeoutMs: 120_000 })
+      .catch(() => undefined)
+    if (r === undefined) continue // no está instalado
+    if (r.exitCode === 0 && (await h.fs.exists(rutaPdf))) {
+      if (abrir) abrirArchivo(h, rutaPdf)
+      return `📄 PDF de repaso listo: ${rutaPdf}\n${contenido}`
+    }
+  }
+  if (abrir) abrirArchivo(h, rutaHtml)
+  return `No encontré Chrome, Chromium, Edge ni Brave para crear el PDF. Dejé el documento en:\n  ${rutaHtml}\n` +
+    `Ábrelo en el navegador y usa Imprimir → Guardar como PDF (con «Gráficos de fondo» activado).\n${contenido}`
+}
+
+/** Abre un archivo con la aplicación del sistema, sin esperar. */
+function abrirArchivo(h: Host, ruta: string) {
+  h.after(1, () => {
+    void h.run(['xdg-open', ruta], { timeoutMs: 10_000 })
+      .catch(() => h.run(['open', ruta], { timeoutMs: 10_000 }))
+      .catch(() => undefined)
+  })
 }
 
 // ── Voz ─────────────────────────────────────────────────────────────────────

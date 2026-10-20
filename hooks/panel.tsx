@@ -355,6 +355,17 @@ export function registrarPanel(on: On, cfg: Config, home: () => string) {
               <Button key={`skill-${s.id}`} label={s.label} hotkey={s.hotkey}
                 onPress={() => void m.submitPrompt(`/estudio:${s.id}`)} />
             ))}
+            <Button key="pdf" label="📄 PDF" hotkey="d" variant="primary"
+              onPress={() => {
+                m.toast('Generando el PDF de repaso…', 4000)
+                void acc.generarPdf(m, cfg).then(
+                  texto => {
+                    m.linea(texto)
+                    m.toast(texto.split('\n')[0] ?? texto, 8000)
+                  },
+                  err => m.toast(`No pude generar el PDF: ${err instanceof Error ? err.message : String(err)}`, 8000),
+                )
+              }} />
             <Button key="refrescar" label="↻" hotkey="r" dimColor onPress={() => void acc.refrescarCuaderno(m, cfg)} />
           </Box>
           <Text dimColor>Pregunta lo que quieras: /estudio:preguntar &lt;pregunta&gt;</Text>

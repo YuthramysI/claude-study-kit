@@ -14,6 +14,7 @@ const PESTANAS: readonly Pestana[] = ['pomodoro', 'repaso', 'cuaderno', 'stats']
 
 const AYUDA = `Comandos de estudio:
   /estudio [pomodoro|repaso|cuaderno|stats|callar]   panel de estudio
+  /estudio pdf                                       PDF de repaso del cuaderno activo
   /pomodoro [iniciar [min]|pausar|reanudar|saltar|parar|estado]
   /cuaderno [nombre]                                 crear o elegir cuaderno
   /repasar                                           repasar tarjetas pendientes
@@ -49,9 +50,9 @@ export const register: Register = (on, options) => {
       acc.arranque.errores.push(`latido: ${mensaje(err)}`)
     }
     // cada registro por separado: si uno es rechazado, los demás siguen
-    const nombres = ['/estudio', '/pomodoro', '/promodoro', '/cuaderno', '/repasar', '/anki', 'cuaderno_activo', 'guardar_tarjetas', 'diagnostico_pomodoro', 'leer_en_voz_alta']
+    const nombres = ['/estudio', '/pomodoro', '/promodoro', '/cuaderno', '/repasar', '/anki', 'cuaderno_activo', 'guardar_tarjetas', 'diagnostico_pomodoro', 'generar_pdf_repaso', 'leer_en_voz_alta']
     const registros = await Promise.allSettled([
-      $.command.register({ name: 'estudio', description: 'Abre el panel de estudio (Pomodoro, repaso, cuaderno, estadísticas)', argumentHint: '[pomodoro|repaso|cuaderno|stats|callar|ayuda]' }),
+      $.command.register({ name: 'estudio', description: 'Abre el panel de estudio (Pomodoro, repaso, cuaderno, estadísticas)', argumentHint: '[pomodoro|repaso|cuaderno|stats|pdf|callar|ayuda]' }),
       $.command.register({ name: 'pomodoro', description: 'Controla el Pomodoro', argumentHint: ARG_POMODORO, immediate: true }),
       $.command.register({ name: 'promodoro', description: 'Igual que /pomodoro', argumentHint: ARG_POMODORO, immediate: true }),
       $.command.register({ name: 'cuaderno', description: 'Crea o elige el cuaderno de estudio activo', argumentHint: '[nombre]' }),
@@ -95,6 +96,14 @@ export const register: Register = (on, options) => {
       $.tool.register({
         name: 'diagnostico_pomodoro',
         description: 'Prueba los avisos del Pomodoro del plugin estudio (sonido, notificación, línea en el chat) y devuelve qué funcionó y el estado del temporizador. Úsala cuando el usuario diga que no le llegan los avisos.',
+        inputSchema: { type: 'object', properties: {} },
+      }),
+      $.tool.register({
+        name: 'generar_pdf_repaso',
+        description:
+          'Genera el PDF de repaso del cuaderno activo del plugin estudio (portada con estadísticas, todas las tarjetas, ' +
+          'las guías/quizzes/guiones de salidas/ y tarjetas para recortar) y lo abre. Devuelve la ruta. ' +
+          'Úsala cuando el usuario pida su repaso, apuntes o tarjetas en PDF o para imprimir.',
         inputSchema: { type: 'object', properties: {} },
       }),
       $.tool.register({
@@ -183,6 +192,14 @@ export const register: Register = (on, options) => {
     result: await acc.probarAvisos(hostOf($, home), cfg),
   })).catch(() => ({ result: 'Error interno del plugin estudio en el diagnóstico.' }))
 
+  on('tool.call', { tool: 'mcp__estudio__generar_pdf_repaso' }, async $ => {
+    try {
+      return { result: await acc.generarPdf(hostOf($, home), cfg) }
+    } catch (err) {
+      return { result: mensaje(err) }
+    }
+  }).catch(() => ({ result: 'Error interno del plugin estudio al generar el PDF.' }))
+
   on('tool.call', { tool: 'mcp__estudio__leer_en_voz_alta' }, async ($, e) => {
     const texto: unknown = (e as { texto?: unknown }).texto
     if (typeof texto !== 'string' || texto.trim() === '') return { result: 'Falta `texto`.' }
@@ -212,6 +229,7 @@ async function comandoEstudio($: EngineInterface, args: string, cfg: Config, hom
     return { text: 'Voz detenida.' }
   }
   if (arg === 'ayuda' || arg === 'help') return { text: AYUDA }
+  if (arg === 'pdf') return { text: await acc.generarPdf(h, cfg) }
   const pestana = arg === '' ? undefined : PESTANAS.find(p => p.startsWith(arg))
   if (arg !== '' && pestana === undefined) return { text: `No conozco «${arg}».\n${AYUDA}` }
   const abierto = await abrirPanel(h, cfg, pestana)
@@ -256,7 +274,8 @@ async function comandoRepasar($: EngineInterface, cfg: Config, home: string) {
   await acc.refrescarCuaderno(h, cfg)
   const n = pendientes(await h.st.tarjetas.leer(), fecha(await $.clock.now())).length
   const abierto = await abrirPanel(h, cfg, 'repaso')
-  return { text: `${abierto} ${n} tarjetas pendientes hoy. Pulsa m para ver la respuesta y 1-4 para calificar.` }
+  if (n === 0) return { text: `${abierto} No tienes tarjetas pendientes hoy. 🎉` }
+  return { text: `${abierto} ${n} ${n === 1 ? 'tarjeta pendiente' : 'tarjetas pendientes'} hoy: pulsa m para ver la respuesta y 1-4 para calificar.` }
 }
 
 async function comandoTarjetas($: EngineInterface, args: string, home: string) {

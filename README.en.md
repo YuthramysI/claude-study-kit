@@ -20,6 +20,7 @@ A plugin that turns Claude Code into your study space: **Pomodoro timer**, **spa
 | 📚 **Notebooks** | One folder per subject with your PDFs, notes or photos. Claude answers **only from your sources**, cites `[file, p. X]` and says when something isn't in them. |
 | 📝 **Guide, quiz, audio** | A study guide with glossary and FAQ, an interactive quiz (missed questions become flashcards) and a podcast-style summary read aloud. |
 | 📊 **Stats** | Daily streak, pomodoros and focus hours, accuracy, 7- and 28-day charts, and new, learning and mature cards. |
+| 📄 **Review PDF** | `/estudio pdf`: a printable document with a stats cover, every card, the guides and quizzes Claude wrote, and cut-out double-sided flashcards. |
 | 🔁 **Anki** | Export your cards to Anki and import Anki decks or CSV files. |
 | 🛡️ **Safe** | Automatic card backups (one week of history) and recovery if `tarjetas.json` gets corrupted. |
 
@@ -48,6 +49,20 @@ or from a shell: `claude plugin install estudio --marketplace YuthramysI/claude-
 | `/estudio:guia` | Study guide → `salidas/` |
 | `/estudio:quiz [n]` | Interactive multiple-choice quiz |
 | `/estudio:audio [min]` | Spoken summary |
+| `/estudio pdf` | Your whole review as a printable PDF |
+
+## 📄 Review PDF
+
+![Review PDF pages: stats cover, flashcards, study guide and cut-out cards (front and back)](docs/pdf-repaso.png)
+
+Run **`/estudio pdf`**, press **📄 PDF** (key `d`) in the Notebook tab, or just ask Claude: *"make my review PDF"*. It saves `salidas/repaso-<notebook>-<date>.pdf` and opens it. It contains:
+
+- **Cover**: streak, pomodoros, focus time, accuracy, cards due today, weekly and 16-week charts, card stages, sources and a linked table of contents.
+- **Flashcards**: every card with its answer, source and next review date, grouped into *due today*, *learning* and *mature*.
+- **Documents**: each guide, quiz, FAQ or audio script in `salidas/`, typeset.
+- **Cut-out cards**: 10 per A4 sheet. Print **double-sided, flip on long edge, at 100 %**; each answer lands right behind its question.
+
+It needs Chrome, Chromium, Edge or Brave (run headless, nothing to set up). Without one, it leaves the `.html` next to it: print it to PDF with *background graphics* on. Everything is generated locally.
 
 ## ⚙️ Settings
 
@@ -62,7 +77,7 @@ The alarm uses `paplay` and the voice uses `spd-say`: `sudo apt install speech-d
 ```bash
 claude --plugin-dir .       # run Claude Code with this folder's plugin loaded
 claude plugin validate .
-claude plugin test .        # 40 tests
+claude plugin test .        # 47 tests
 ```
 
 ## 📄 License

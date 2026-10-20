@@ -2,7 +2,7 @@
 
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-green.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
-[![Tests](https://img.shields.io/badge/tests-40_pasan-brightgreen.svg)](#desarrollo)
+[![Tests](https://img.shields.io/badge/tests-47_pasan-brightgreen.svg)](#desarrollo)
 
 **[English](README.en.md)** · Español
 
@@ -37,6 +37,7 @@ Hoy: 3 pomodoros · 1 h 15 min  ·  🔥 5 días
 | 📚 **Cuadernos** | Una carpeta por tema con tus PDFs, apuntes o fotos. Claude responde **solo con tus fuentes**, cita `[archivo, p. X]` y avisa cuando algo no está en ellas. |
 | 📝 **Guía, quiz y audio** | Guía de estudio con glosario y FAQ, quiz interactivo (las preguntas que fallas se convierten en tarjetas) y un resumen tipo podcast leído en voz alta. |
 | 📊 **Estadísticas** | Racha de días, pomodoros y horas de enfoque, % de aciertos, barras de la semana, mapa de actividad de 16 semanas (estilo GitHub) y tarjetas nuevas, en aprendizaje o maduras. |
+| 📄 **PDF de repaso** | Un documento listo para imprimir: portada con estadísticas y gráficos, todas tus tarjetas, las guías y quizzes que generó Claude, y tarjetas para recortar a doble cara. |
 | 🔁 **Anki** | Exporta tus tarjetas a Anki o importa mazos de Anki y CSV. |
 | 🛡️ **A prueba de fallos** | Copia de seguridad automática de las tarjetas (una semana de historia) y recuperación si `tarjetas.json` se daña. |
 
@@ -69,6 +70,7 @@ En la app de escritorio: **+** junto al cuadro de texto → **Plugins** → **Ad
 /pomodoro                     empieza a estudiar (25 min)
 /estudio:tarjetas 20          Claude crea 20 tarjetas a partir de tus fuentes
 /repasar                      repasa lo que toca hoy
+/estudio pdf                  todo tu repaso en un PDF para imprimir
 ```
 
 ## 📖 Comandos
@@ -76,6 +78,7 @@ En la app de escritorio: **+** junto al cuadro de texto → **Plugins** → **Ad
 | Comando | Qué hace |
 |---|---|
 | `/estudio [pomodoro\|repaso\|cuaderno\|stats]` | Abre el panel en esa pestaña |
+| `/estudio pdf` | Genera el PDF de repaso del cuaderno en `salidas/` y lo abre |
 | `/estudio callar` · `/estudio ayuda` | Detiene la voz · muestra la ayuda |
 | `/pomodoro` | Inicia el pomodoro (si ya corre, dice cuánto queda) |
 | `/pomodoro probar` | Prueba la alarma y los avisos |
@@ -101,12 +104,11 @@ También puedes pedirlo con tus palabras: *«hazme un quiz de 5 preguntas sobre 
 
 ### Teclas del panel
 
-| Tecla | Acción | | Tecla | Acción |
-|---|---|---|---|---|
-| `i` | iniciar | | `m` | mostrar respuesta |
-| `p` | pausar/reanudar | | `1`–`4` | Otra vez / Difícil / Bien / Fácil |
-| `s` | saltar fase | | `t` `g` `q` `a` | tarjetas · guía · quiz · audio |
-| `x` | parar | | `r` | recargar el cuaderno |
+| Pestaña | Teclas |
+|---|---|
+| 🍅 Pomodoro | `i` iniciar · `p` pausar/reanudar · `s` saltar fase · `x` parar |
+| 🃏 Repaso | `m` mostrar respuesta · `1`–`4` Otra vez / Difícil / Bien / Fácil |
+| 📚 Cuaderno | `t` tarjetas · `g` guía · `q` quiz · `a` audio · `d` **PDF de repaso** · `r` recargar |
 
 ## 🗂️ Dónde se guardan tus datos
 
@@ -114,7 +116,8 @@ También puedes pedirlo con tus palabras: *«hazme un quiz de 5 preguntas sobre 
 ~/estudio/
 └── biologia/
     ├── fuentes/            ← tus materiales: pdf, md, txt, html, docx, imágenes...
-    ├── salidas/            ← guías, quizzes, guiones y exportaciones de Anki
+    ├── salidas/            ← guías, quizzes, guiones, exportaciones de Anki
+    │   └── repaso-biologia-2026-10-20.pdf   ← tu PDF de repaso (y su .html)
     ├── tarjetas.json       ← tus tarjetas (puedes editarlo a mano)
     ├── tarjetas.bak.json   ← versión anterior
     └── .respaldos/         ← una copia por día de la semana
@@ -134,6 +137,47 @@ En `/config` → **estudio**:
 | Iniciar solo el siguiente pomodoro | no |
 | Recordar tarjetas pendientes al abrir sesión | sí |
 
+## 📄 PDF de repaso
+
+Todo lo que has estudiado en un cuaderno, en un solo PDF listo para leer en la tablet o imprimir.
+
+![Páginas del PDF de repaso: portada con estadísticas, tarjetas, guía de estudio y tarjetas para recortar (anverso y reverso)](docs/pdf-repaso.png)
+
+<sub>Páginas de un repaso de ejemplo generado por el plugin.</sub>
+
+### Cómo generarlo
+
+Elige la forma que prefieras:
+
+- Escribe **`/estudio pdf`**.
+- En el panel, pestaña **📚 Cuaderno**, pulsa **📄 PDF** (tecla `d`).
+- O pídeselo a Claude con tus palabras: *«hazme el PDF de repaso de biología»*.
+
+El PDF se guarda en `salidas/repaso-<cuaderno>-<fecha>.pdf` y se abre solo. Puedes generarlo las veces que quieras: cada día crea uno nuevo, y si lo repites el mismo día se sobrescribe con lo más reciente.
+
+### Qué incluye
+
+| Sección | Contenido |
+|---|---|
+| **Portada** | Nombre del cuaderno y fecha; racha, pomodoros, horas de enfoque, % de aciertos y tarjetas para hoy; gráficos de la semana y de las últimas 16 semanas; etapas de las tarjetas; tus fuentes; índice con enlaces. |
+| **🃏 Tarjetas** | Todas, con su respuesta, su fuente y la fecha del próximo repaso, agrupadas en *para repasar hoy*, *aprendiendo* y *maduras*. Numeradas igual que las tarjetas para recortar. |
+| **Documentos** | Cada guía, quiz, FAQ o guion de audio de `salidas/`, maquetado: títulos, listas, tablas, citas y código. |
+| **✂️ Tarjetas para recortar** | 10 tarjetas por hoja A4, con la pregunta en el anverso y la respuesta (con su fuente) en el reverso. |
+
+> 💡 **Consejo:** genera antes la guía (`/estudio:guia`) y un quiz (`/estudio:quiz`); así el PDF los incluye y queda como un dosier de estudio completo.
+
+### Imprimir las tarjetas para recortar
+
+1. Imprime **a doble cara, girando por el borde largo**, al **100 %** (sin «ajustar a la página»).
+2. Cada hoja de preguntas va seguida de su hoja de respuestas, en espejo, para que cada respuesta quede justo detrás de su pregunta.
+3. Recorta por las líneas discontinuas. El número de la esquina te ayuda a emparejarlas.
+
+### Requisitos
+
+- Usa **Chrome, Chromium, Edge o Brave** sin abrir ventana. Si tienes alguno instalado, no hay que configurar nada.
+- Si no hay ninguno, el plugin deja el **`.html`** junto al PDF y lo abre: usa *Imprimir → Guardar como PDF* con **«Gráficos de fondo»** activado.
+- Todo se genera en tu equipo; nada se sube a internet.
+
 ## 🔊 Sonido y voz
 
 - **macOS**: funciona sin instalar nada.
@@ -148,14 +192,16 @@ En `/config` → **estudio**:
 git clone https://github.com/YuthramysI/claude-study-kit && cd claude-study-kit
 claude --plugin-dir .         # ejecuta Claude Code con el plugin cargado desde esta carpeta
 claude plugin validate .      # manifiesto y hooks
-claude plugin test .          # 40 tests: SM-2, Pomodoro, estadísticas, Anki, panel, recuperación
+claude plugin test .          # 47 tests: SM-2, Pomodoro, estadísticas, Anki, PDF, panel, recuperación
 ```
 
 | Archivo | Contenido |
 |---|---|
 | `hooks/register.tsx` | Comandos, herramientas y arranque |
 | `hooks/panel.tsx` | El panel y sus 4 pestañas |
-| `hooks/acciones.ts` | Pomodoro, cuadernos, tarjetas, estadísticas, voz |
+| `hooks/graficos.ts` | Gráficos SVG (anillo, barras, mapa de actividad, etapas) y el reloj grande de la terminal |
+| `hooks/pdf.ts` · `markdown.ts` | El documento del PDF de repaso y el conversor de Markdown |
+| `hooks/acciones.ts` | Pomodoro, cuadernos, tarjetas, estadísticas, PDF, voz |
 | `hooks/srs.ts` · `pomodoro.ts` · `stats.ts` · `anki.ts` | Lógica pura (con tests) |
 | `hooks/cuadernos.ts` | Archivos, copias de seguridad y recuperación |
 | `hooks/motor.ts` | Enlace con el motor de Claude Code y estado de sesión |
