@@ -46,6 +46,7 @@ export function hostOf($: EngineInterface, home: string): Host {
     toast: (text, timeoutMs) => $.ui.toast(text, timeoutMs !== undefined ? { timeoutMs } : undefined),
     notify: text => $.ui.notify(text, { title: 'Estudio' }),
     log: text => $.ui.log(text, { to: 'debug' }),
+    linea: text => $.ui.log(text),
     openPane: pane => $.ui.open(pane),
     registerCommand: spec => $.command.register(spec),
     registerTool: spec => $.tool.register(spec),

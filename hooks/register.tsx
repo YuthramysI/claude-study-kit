@@ -29,7 +29,7 @@ const VERBOS: Record<string, acc.VerboPomodoro> = {
   alternar: 'alternar',
 }
 
-const ARG_POMODORO = '[iniciar [min]|pausar|reanudar|saltar|parar|estado]'
+const ARG_POMODORO = '[iniciar [min]|pausar|reanudar|saltar|parar|estado|probar]'
 
 export const register: Register = (on, options) => {
   const cfg = config(options)
@@ -84,6 +84,11 @@ export const register: Register = (on, options) => {
         },
       }),
       $.tool.register({
+        name: 'diagnostico_pomodoro',
+        description: 'Prueba los avisos del Pomodoro del plugin estudio (sonido, notificación, línea en el chat) y devuelve qué funcionó y el estado del temporizador. Úsala cuando el usuario diga que no le llegan los avisos.',
+        inputSchema: { type: 'object', properties: {} },
+      }),
+      $.tool.register({
         name: 'leer_en_voz_alta',
         isDeferred: false,
         description:
@@ -101,7 +106,10 @@ export const register: Register = (on, options) => {
     await acc.restaurarPomodoro(h).catch(fallo('pomodoro'))
     await acc.refrescarCuaderno(h, cfg).catch(fallo('cuaderno'))
     if (cfg.recordatorio) h.after(3000, () => void acc.recordatorio(h).catch(fallo('recordatorio')))
-    $.clock.every(1000, () => void acc.latido(h, cfg).catch(fallo('latido')))
+    $.clock.every(1000, () => void acc.latido(h, cfg).catch(err => {
+      acc.pulso.ultimoError = String(err)
+      fallo('latido')(err)
+    }))
     return started
   })
 
@@ -153,6 +161,10 @@ export const register: Register = (on, options) => {
     }
   }).catch(() => ({ result: 'Error interno del plugin estudio al guardar las tarjetas.' }))
 
+  on('tool.call', { tool: 'mcp__estudio__diagnostico_pomodoro' }, async $ => ({
+    result: await acc.probarAvisos(hostOf($, home), cfg),
+  })).catch(() => ({ result: 'Error interno del plugin estudio en el diagnóstico.' }))
+
   on('tool.call', { tool: 'mcp__estudio__leer_en_voz_alta' }, async ($, e) => {
     const texto: unknown = (e as { texto?: unknown }).texto
     if (typeof texto !== 'string' || texto.trim() === '') return { result: 'Falta `texto`.' }
@@ -194,6 +206,7 @@ async function comandoPomodoro($: EngineInterface, args: string, cfg: Config, ho
   if (verbo === 'estado' || verbo === 'status') {
     return { text: acc.describirPomodoro(await h.st.pomodoro.leer(), await $.clock.now()) }
   }
+  if (verbo === 'probar' || verbo === 'test') return { text: await acc.probarAvisos(h, cfg) }
   const soloNumero = /^\d/.test(verbo)
   const minutos = mins !== undefined ? Number(mins.replace(',', '.')) : soloNumero ? Number(verbo.replace(',', '.')) : undefined
   if (minutos !== undefined && !(minutos > 0 && minutos <= 240)) return { text: 'Los minutos van de 1 a 240.' }

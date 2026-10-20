@@ -6,6 +6,7 @@ import type {
   ProcessRunResult,
   ToolSpec,
   TimerCall,
+  UiNotifyResult,
   UiOpenResult,
 } from 'claude-code'
 
@@ -47,8 +48,11 @@ export type Host = {
   }
   status: (text: string | undefined) => void
   toast: (text: string, timeoutMs?: number) => void
-  notify: (text: string) => Promise<unknown>
+  notify: (text: string) => Promise<UiNotifyResult>
+  /** Al registro de depuración. */
   log: (text: string) => void
+  /** Una línea tenue en la conversación (no la lee el modelo). */
+  linea: (text: string) => void
   openPane: (pane: PaneOpenArgs) => Promise<UiOpenResult>
   registerCommand: (spec: CommandSpec) => Promise<unknown>
   registerTool: (spec: ToolSpec) => Promise<unknown>

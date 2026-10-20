@@ -87,3 +87,13 @@ test('al llegar a cero el enfoque pasa a descanso, avisa y cuenta el pomodoro', 
   expect((await ui.find({ type: 'Text', text: /DESCANSO/ }))?.text).toContain('DESCANSO')
   await ui.unmount()
 })
+
+test('/pomodoro sin argumentos inicia o reanuda, pero nunca pausa', async ($, on) => {
+  motor(on)
+  const cmd = { origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } } as const
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  expect((await $.command.run({ command: 'pomodoro', args: '', ...cmd })).text).toBe('🍅 25:00 · enfoque 1/4')
+  expect((await $.command.run({ command: 'promodoro', args: '', ...cmd })).text).toBe('🍅 25:00 · enfoque 1/4')
+  await $.command.run({ command: 'pomodoro', args: 'pausar', ...cmd })
+  expect((await $.command.run({ command: 'pomodoro', args: '', ...cmd })).text).not.toContain('pausa')
+})

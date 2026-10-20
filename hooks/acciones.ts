@@ -30,7 +30,8 @@ export async function pomodoro(h: Host, cfg: Config, verbo: VerboPomodoro, minut
       case 'reanudar':
         return pomo.reanudar(p, ahora)
       case 'alternar':
-        if (p.estado === 'corriendo') return pomo.pausar(p, ahora)
+        // sin argumentos nunca pausa: inicia, reanuda o deja correr
+        if (p.estado === 'corriendo') return minutos === undefined ? p : pomo.iniciar(p, ahora, cfg.duraciones, minutos)
         if (p.estado === 'pausado') return pomo.reanudar(p, ahora)
         return pomo.iniciar(p, ahora, cfg.duraciones, minutos)
       case 'saltar':
@@ -60,8 +61,13 @@ export async function restaurarPomodoro(h: Host) {
   h.status(pomo.lineaEstado(p, ahora))
 }
 
+/** Lo que el diagnóstico cuenta del temporizador de este módulo. */
+export const pulso = { latidos: 0, ultimo: 0, fases: 0, ultimoError: '' }
+
 /** Un latido por segundo: mueve el reloj y cambia de fase al llegar a cero. */
 export async function latido(h: Host, cfg: Config) {
+  pulso.latidos++
+  pulso.ultimo = await h.now()
   const actual = await h.st.pomodoro.leer()
   if (actual.estado !== 'corriendo') return
   const ahora = await h.now()
@@ -91,9 +97,42 @@ export async function latido(h: Host, cfg: Config) {
     : p.estado === 'corriendo'
       ? `¡Fin del descanso! Empieza el siguiente pomodoro (${Math.round(p.duracionMs / 60_000)} min).`
       : '¡Fin del descanso! Cuando quieras, inicia el siguiente pomodoro.'
+  pulso.fases++
+  avisar(h, cfg, aviso)
+}
+
+/** Todas las vías a la vez: alguna llega aunque la superficie no tenga las otras. */
+function avisar(h: Host, cfg: Config, aviso: string) {
+  h.linea(`🔔 ${aviso}`)
   h.toast(aviso, 8000)
   void h.notify(aviso).catch(() => undefined)
   if (cfg.sonido) campana(h, cfg)
+}
+
+/** /pomodoro probar: lanza el aviso de fin de fase y cuenta qué vía funcionó. */
+export async function probarAvisos(h: Host, cfg: Config): Promise<string> {
+  const ahora = await h.now()
+  const p = await h.st.pomodoro.leer()
+  h.linea('🔔 Prueba de aviso del Pomodoro')
+  h.toast('🔔 Prueba de aviso del Pomodoro', 8000)
+  const notif = await h.notify('Prueba de aviso del Pomodoro').then(
+    r => (r.isSent ? `enviada (${r.channel})` : `no enviada: ${r.reason}`),
+    err => `error: ${String(err)}`,
+  )
+  const archivo = `${h.pluginRoot}/sounds/campana.wav`
+  const sonido = await h.run(['paplay', `--volume=${Math.round((cfg.volumen / 100) * 65536)}`, archivo], { timeoutMs: 10_000 }).then(
+    r => (r.exitCode === 0 ? 'sonó (paplay)' : `paplay falló (${r.exitCode}): ${r.stderr.trim().slice(0, 120)}`),
+    err => `no se pudo ejecutar paplay: ${String(err)}`,
+  )
+  const hace = pulso.ultimo === 0 ? 'nunca' : `hace ${Math.round((ahora - pulso.ultimo) / 1000)} s`
+  return [
+    'Diagnóstico de avisos:',
+    `  sonido: ${sonido}${cfg.sonido ? '' : ' (la alarma está desactivada en /config)'}`,
+    `  notificación del sistema: ${notif}`,
+    '  aviso flotante y línea en el chat: enviados (¿ves «🔔 Prueba de aviso» arriba?)',
+    `  temporizador: ${pulso.latidos} latidos, último ${hace}; ${pulso.fases} cambios de fase en este módulo${pulso.ultimoError ? `; último error: ${pulso.ultimoError}` : ''}`,
+    `  pomodoro: ${describirPomodoro(p, ahora)}`,
+  ].join('\n')
 }
 
 /** Alarma: la campana varias veces; paplay donde lo hay (Linux), si no el reproductor del motor (macOS). */

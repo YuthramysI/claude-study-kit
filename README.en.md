@@ -60,7 +60,7 @@ The alarm uses `paplay` and the voice uses `spd-say`: `sudo apt install speech-d
 ```bash
 claude --plugin-dir .       # run Claude Code with this folder's plugin loaded
 claude plugin validate .
-claude plugin test .        # 32 tests
+claude plugin test .        # 33 tests
 ```
 
 ## 📄 License

@@ -2,7 +2,7 @@
 
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-green.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
-[![Tests](https://img.shields.io/badge/tests-32_pasan-brightgreen.svg)](#desarrollo)
+[![Tests](https://img.shields.io/badge/tests-33_pasan-brightgreen.svg)](#desarrollo)
 
 **[English](README.en.md)** · Español
 
@@ -71,7 +71,8 @@ En la app de escritorio: **+** junto al cuadro de texto → **Plugins** → **Ad
 |---|---|
 | `/estudio [pomodoro\|repaso\|cuaderno\|stats]` | Abre el panel en esa pestaña |
 | `/estudio callar` · `/estudio ayuda` | Detiene la voz · muestra la ayuda |
-| `/pomodoro` | Inicia o pausa el pomodoro |
+| `/pomodoro` | Inicia el pomodoro (si ya corre, dice cuánto queda) |
+| `/pomodoro probar` | Prueba la alarma y los avisos |
 | `/pomodoro 50` · `/pomodoro iniciar 50` | Un enfoque de 50 minutos |
 | `/pomodoro pausar\|reanudar\|saltar\|parar\|estado` | Control del temporizador (también vale `/promodoro`) |
 | `/cuaderno` · `/cuaderno <nombre>` | Lista los cuadernos · crea o activa uno |
@@ -141,7 +142,7 @@ En `/config` → **estudio**:
 git clone https://github.com/YuthramysI/estudio && cd estudio
 claude --plugin-dir .         # ejecuta Claude Code con el plugin cargado desde esta carpeta
 claude plugin validate .      # manifiesto y hooks
-claude plugin test .          # 32 tests: SM-2, Pomodoro, estadísticas, Anki, panel, recuperación
+claude plugin test .          # 33 tests: SM-2, Pomodoro, estadísticas, Anki, panel, recuperación
 ```
 
 | Archivo | Contenido |
