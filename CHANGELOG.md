@@ -4,12 +4,16 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 
 ## [Sin publicar]
 
+## [1.1.0] - 2026-10-20
+
 ### Añadido
 - **PDF de repaso** (`/estudio pdf`, botón 📄 PDF y herramienta `generar_pdf_repaso`): portada con estadísticas y gráficos, todas las tarjetas agrupadas por etapa, las guías, quizzes y guiones de `salidas/` maquetados, y tarjetas para recortar a doble cara. Usa Chrome, Chromium, Edge o Brave sin abrir ventana; si no hay ninguno, deja el HTML para imprimir.
 - `/pomodoro probar`: lanza un aviso de prueba y dice qué funcionó (sonido, notificación, temporizador).
 - El aviso de fin de fase también aparece como una línea `🔔` en la conversación, para las superficies que no muestran avisos flotantes ni notificaciones (por ejemplo, VS Code).
 
 ### Cambiado
+- Las tarjetas repasadas hoy se cuentan desde las estadísticas, así que siguen bien aunque la sesión pase de medianoche.
+- Código muerto eliminado (`barra` del Pomodoro y dos métodos sin uso del Host) y registros de arranque con nombre propio, en vez de una lista paralela.
 - **Rediseño del panel.** En VS Code y escritorio, el Pomodoro es un anillo de progreso con los puntos del ciclo; las estadísticas muestran barras de la semana, un mapa de actividad de 16 semanas y la barra de etapas de las tarjetas. En la terminal, el reloj usa dígitos grandes y barras de color. Tarjetas de resumen con borde y colores del tema, tarjeta de repaso con pregunta y respuesta destacadas, botones de calificación en colores con su intervalo, e iconos por tipo de fuente.
 - `/tarjetas` pasa a llamarse **`/anki`** (resumen, `exportar`, `importar <archivo>`).
 
@@ -17,6 +21,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 - **El Pomodoro no avisaba al terminar.** Claude Code rechazaba el comando `/tarjetas` (choca con la skill `/estudio:tarjetas`), y ese rechazo abortaba el arranque del plugin antes de encender el temporizador. Ahora el temporizador arranca primero, cada comando se registra por separado y cualquier comando o turno vuelve a encender el temporizador si no está latiendo.
 - `/pomodoro` sin argumentos ya no pausa un pomodoro en marcha: lo inicia, lo reanuda o dice cuánto queda. Para pausar, usa `/pomodoro pausar`.
 - `/repasar` sin tarjetas pendientes ya no dice que pulses `m`.
+- El respaldo del temporizador podía sustituir el temporizador de la sesión por uno ligado a un comando o a un turno; ahora siempre rearranca el de la sesión, y no salta en el primer segundo tras una recarga.
+- `/pomodoro iniciar` con el reloj en marcha ya no reinicia la fase (con minutos, `/pomodoro iniciar 50`, sí empieza uno nuevo).
+- Releer un `tarjetas.json` dañado sin copia válida creaba una copia del archivo dañado en cada lectura; ahora guarda una sola por contenido.
+- Si el navegador falla al crear el PDF, el mensaje da el motivo en vez de «no encontré Chrome».
+- La racha decía «1 días».
+- En Windows, la carpeta de estudio se resuelve con `USERPROFILE`.
+- `tsc -p .` fallaba con los tipos que genera Claude Code (la lista de herramientas MCP va una recarga por detrás); el `tsconfig.json` ya no depende de ella.
+- La herramienta `generar_pdf_repaso` está siempre visible para Claude, que la usa cuando le pides el PDF.
+- Los ids de tarjetas nuevas son únicos aunque dos tandas coincidan en el mismo milisegundo.
 
 ## [1.0.0] - 2026-10-20
 

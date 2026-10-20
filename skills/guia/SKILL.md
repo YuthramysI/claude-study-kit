@@ -27,4 +27,4 @@ Enfoque pedido: $ARGUMENTS (si está vacío, todo el cuaderno).
    ```
 
 4. Guárdala con Write en `<salidas>/guia-<tema-en-minusculas-con-guiones>.md` (o `guia.md` si es de todo el cuaderno).
-5. En el chat muestra solo el **Resumen** y las **Ideas clave**, más la ruta del archivo. Ofrece crear tarjetas con `/estudio:tarjetas` o hacer un quiz con `/estudio:quiz`.
+5. En el chat muestra solo el **Resumen** y las **Ideas clave**, más la ruta del archivo. Ofrece crear tarjetas con `/estudio:tarjetas`, hacer un quiz con `/estudio:quiz` o reunirlo todo en un PDF para imprimir con `/estudio pdf`.

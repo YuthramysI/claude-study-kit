@@ -20,4 +20,4 @@ Petición: $ARGUMENTS (por defecto, 15 tarjetas de todo el cuaderno).
    - `fuente`: archivo y página o sección, p. ej. `tema3.pdf, p. 14`.
    - Usa el idioma de las fuentes, salvo que el usuario pida otro.
 4. Guárdalas con **una sola** llamada a `mcp__estudio__guardar_tarjetas` con `{ "tarjetas": [ { "frente", "reverso", "fuente" }, ... ] }`.
-5. Di cuántas se guardaron, muestra 3 de ejemplo y recuerda que se repasan con `/repasar` (o en el panel `/estudio`).
+5. Di cuántas se guardaron, muestra 3 de ejemplo y recuerda que se repasan con `/repasar` (o en el panel `/estudio`) y que `/estudio pdf` las imprime como tarjetas para recortar.

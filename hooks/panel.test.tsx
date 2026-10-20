@@ -128,3 +128,46 @@ test('si Claude Code rechaza un comando al arrancar, el Pomodoro sigue avisando 
   const diag = await $.tool.call({ tool: 'mcp__estudio__diagnostico_pomodoro' })
   expect(String(diag.result)).toContain('/anki')
 })
+
+test('«/pomodoro iniciar» con el reloj en marcha no lo reinicia', async ($, on) => {
+  const clock = motor(on)
+  const cmd = { origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } } as const
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'pomodoro', args: 'iniciar', ...cmd })
+  await clock.advance(30_000)
+  const otra = await $.command.run({ command: 'pomodoro', args: 'iniciar', ...cmd })
+  expect(otra.text).toBe('🍅 24:30 · enfoque 1/4')
+  // con minutos explícitos sí empieza uno nuevo
+  expect((await $.command.run({ command: 'pomodoro', args: 'iniciar 10', ...cmd })).text).toBe('🍅 10:00 · enfoque 1/4')
+})
+
+test('si el temporizador no late, el siguiente comando detecta la fase vencida y avisa', async ($, on) => {
+  // un reloj que solo avanza a mano y un motor que rechaza todo temporizador: el latido nunca llega
+  let ahora = T0
+  on('clock.now', () => ({ value: ahora }))
+  on('clock.every', () => ({ deny: 'sin temporizadores' }))
+  on('clock.after', () => ({ deny: 'sin temporizadores' }))
+  mock.store(on)
+  mock.env(on, { HOME: '/home/prueba' })
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('tool.register', (_, e) => ({ value: { tool: `mcp__estudio__${e.name}` } }))
+  on('fs.exists', () => ({ value: false }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.log', () => ({ value: undefined }))
+  on('ui.notify', () => ({ value: { isSent: false, reason: 'no-surface' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  const avisos: string[] = []
+  on('ui.toast', (_, e) => {
+    avisos.push(e.text)
+    return { value: undefined }
+  })
+  const cmd = { origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } } as const
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'pomodoro', args: '1', ...cmd })
+  ahora += 70_000
+  expect(avisos.some(a => a.includes('Pomodoro terminado'))).toBe(false)
+
+  const estado = await $.command.run({ command: 'pomodoro', args: 'estado', ...cmd })
+  expect(avisos.some(a => a.includes('Pomodoro terminado'))).toBe(true)
+  expect(estado.text).toContain('descanso')
+})

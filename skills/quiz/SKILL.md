@@ -20,4 +20,5 @@ Petición: $ARGUMENTS (por defecto, 8 preguntas de todo el cuaderno, de dificult
 5. Al terminar:
    - Puntuación (p. ej. `6/8 · 75 %`) y qué temas reforzar.
    - Convierte **cada pregunta fallada** en una tarjeta y guárdalas con `mcp__estudio__guardar_tarjetas`.
-   - Guarda el quiz completo, con sus respuestas, en `<salidas>/quiz-<fecha>.md` con Write.
+   - Guarda el quiz completo, con sus respuestas, en `<salidas>/quiz-<fecha AAAA-MM-DD>.md` con Write (si ya existe uno de hoy, añade `-2`, `-3`…).
+   - Recuerda que `/estudio pdf` incluye este quiz y las tarjetas nuevas en el PDF de repaso.

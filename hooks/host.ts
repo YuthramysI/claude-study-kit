@@ -1,10 +1,8 @@
 import type {
-  CommandSpec,
   FsEntry,
   PaneOpenArgs,
   ProcessRunInit,
   ProcessRunResult,
-  ToolSpec,
   TimerCall,
   UiNotifyResult,
   UiOpenResult,
@@ -18,8 +16,8 @@ export type Celda<T> = {
 }
 
 /**
- * El motor tal como `session.start` lo enlaza desde su `$`: cada temporizador,
- * botón y comando posterior llega al motor por aquí, así que el resto del
+ * El motor tal como `hostOf` lo enlaza desde un `$`: los temporizadores, los
+ * botones y los comandos llegan al motor por aquí, así que el resto del
  * módulo son funciones normales sobre una interfaz pequeña.
  */
 export type Host = {
@@ -54,8 +52,6 @@ export type Host = {
   /** Una línea tenue en la conversación (no la lee el modelo). */
   linea: (text: string) => void
   openPane: (pane: PaneOpenArgs) => Promise<UiOpenResult>
-  registerCommand: (spec: CommandSpec) => Promise<unknown>
-  registerTool: (spec: ToolSpec) => Promise<unknown>
   submitPrompt: (text: string) => Promise<unknown>
   run: (argv: readonly string[], init?: ProcessRunInit) => Promise<ProcessRunResult>
   play: (asset: string, gain: number) => Promise<void>

@@ -16,7 +16,10 @@
 ```bash
 claude plugin validate .   # manifiesto y hooks, sin errores
 claude plugin test .       # todos los tests pasan
+npx -p typescript tsc -p . --noUnusedLocals --noUnusedParameters   # tipos, sin código muerto
 ```
+
+`tsc` necesita `.claude-plugin/types/`, que Claude Code genera al cargar el plugin con `claude --plugin-dir .`.
 
 - Añade tests para lo nuevo: la lógica pura va en `hooks/*.ts` con su `*.test.ts`, y la interfaz se prueba montando el panel en `terminal` y `desktop`.
 - Anota el cambio en `CHANGELOG.md`, en la sección «Sin publicar».

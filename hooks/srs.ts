@@ -105,6 +105,7 @@ export function fusionar(
   const hoy = fecha(ahora)
   const tarjetas = [...existentes]
   let repetidas = 0
+  // ids únicos aunque dos tandas compartan milisegundo: se numeran tras las existentes
   for (const [i, n] of nuevas.entries()) {
     const clave = normalizar(n.frente)
     if (clave === '' || n.reverso.trim() === '' || vistos.has(clave)) {
@@ -112,7 +113,7 @@ export function fusionar(
       continue
     }
     vistos.add(clave)
-    tarjetas.push(nueva(n, hoy, `${ahora.toString(36)}-${i}`))
+    tarjetas.push(nueva(n, hoy, `${ahora.toString(36)}-${existentes.length + i}`))
   }
   return { tarjetas, agregadas: tarjetas.length - existentes.length, repetidas }
 }

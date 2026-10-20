@@ -248,6 +248,7 @@ export function registrarPanel(on: On, cfg: Config, home: () => string) {
       const hoy = fecha(await $.clock.now())
       const cola = pendientes(tarjetas, hoy)
       const repaso = await m.st.repaso.leer()
+      const hechas = (await m.st.stats.leer())[hoy]?.repasos ?? 0
       const actual = cola[0]
       if (actual === undefined) {
         const proxima = tarjetas.map(t => t.vence).sort()[0]
@@ -260,21 +261,21 @@ export function registrarPanel(on: On, cfg: Config, home: () => string) {
               <Text dimColor>
                 {vacio
                   ? 'Pide a Claude que las cree con /estudio:tarjetas'
-                  : `${repaso.hechasHoy} repasadas hoy · próxima el ${proxima}`}
+                  : `${hechas} repasadas hoy · próxima el ${proxima}`}
               </Text>
             </Box>
           </Box>
         )
       }
-      const totalSesion = repaso.hechasHoy + cola.length
-      const progreso = g.barraTexto(totalSesion === 0 ? 0 : repaso.hechasHoy / totalSesion, ancho)
+      const totalHoy = hechas + cola.length
+      const progreso = g.barraTexto(totalHoy === 0 ? 0 : hechas / totalHoy, ancho)
       return (
         <Box flexDirection="column" gap={1}>
           {encabezado}
           <Box flexDirection="column">
             <Text>
               <Text bold>{cola.length}</Text>
-              <Text dimColor> pendientes · {repaso.hechasHoy} repasadas · {cuaderno.nombre}</Text>
+              <Text dimColor> pendientes · {hechas} repasadas hoy · {cuaderno.nombre}</Text>
             </Text>
             <Text>
               <Text color="success">{progreso.lleno}</Text>
@@ -300,7 +301,7 @@ export function registrarPanel(on: On, cfg: Config, home: () => string) {
                   <Button
                     key={`nota-${nota}`}
                     hotkey={String(i + 1)}
-                    variant={nota === 'bien' ? 'primary' : undefined}
+                    variant={nota === 'bien' ? 'primary' : 'secondary'}
                     onPress={() => void acc.calificar(m, actual.id, nota)}
                   >
                     <Text color={COLOR_NOTA[nota]}>{ETIQUETAS[nota]}</Text>

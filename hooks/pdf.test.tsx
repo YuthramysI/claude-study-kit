@@ -32,6 +32,7 @@ describe('documento de repaso', () => {
     expect(tituloDocumento('guia-celula-animal.md')).toBe('Guía de estudio · celula animal')
     expect(tituloDocumento('quiz-2026-10-20.md')).toBe('Quiz · 20 de octubre de 2026')
     expect(tituloDocumento('mis-notas.md')).toBe('mis-notas')
+    expect(tituloDocumento('quiz-2026-10-20-2.md')).toBe('Quiz · 20 de octubre de 2026 (2)')
   })
 
   test('agrupa: hoy primero, después aprendiendo y maduras', async () => {
@@ -118,4 +119,36 @@ test('/estudio pdf escribe el HTML, llama al navegador y abre el PDF', async ($,
   const chrome = ejecutados.find(a => a[0] === 'google-chrome') ?? []
   expect(chrome).toContain('--headless=new')
   expect(chrome.at(-1)).toBe(`file://${encodeURI(`${carpeta}/repaso-química-orgánica-2026-10-20.html`)}`)
+})
+
+test('si el navegador falla, el mensaje dice por qué y deja el HTML', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  mock.store(on)
+  mock.env(on, { HOME: '/h' })
+  const archivos = new Map<string, string>()
+  on('fs.write', (_, e) => {
+    archivos.set(e.path, e.text)
+    return { value: undefined }
+  })
+  on('fs.read', (_, e) => ({ value: archivos.get(e.path) ?? '' }))
+  on('fs.exists', (_, e) => ({ value: archivos.has(e.path) || [...archivos.keys()].some(k => k.startsWith(e.path + '/')) }))
+  on('fs.list', () => ({ value: [] }))
+  on('process.run', (_, e) => {
+    if (e.argv[0] === 'google-chrome') {
+      return { value: { exitCode: 1, stdout: '', stderr: 'Fontconfig error: x\nERROR: sandbox roto\n', isStdoutTruncated: false, isStderrTruncated: false } }
+    }
+    throw new Error('no instalado')
+  })
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('tool.register', (_, e) => ({ value: { tool: `mcp__estudio__${e.name}` } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  const cmd = { origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } } as const
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'cuaderno', args: 'física', ...cmd })
+
+  const r = await $.command.run({ command: 'estudio', args: 'pdf', ...cmd })
+  expect(r.text).toContain('google-chrome (código 1: ERROR: sandbox roto)')
+  expect(r.text).toContain('/h/estudio/física/salidas/repaso-física-2026-10-20.html')
 })

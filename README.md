@@ -2,7 +2,7 @@
 
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-green.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
-[![Tests](https://img.shields.io/badge/tests-47_pasan-brightgreen.svg)](#desarrollo)
+[![Tests](https://img.shields.io/badge/tests-51_pasan-brightgreen.svg)](#desarrollo)
 
 **[English](README.en.md)** · Español
 
@@ -192,7 +192,7 @@ El PDF se guarda en `salidas/repaso-<cuaderno>-<fecha>.pdf` y se abre solo. Pued
 git clone https://github.com/YuthramysI/claude-study-kit && cd claude-study-kit
 claude --plugin-dir .         # ejecuta Claude Code con el plugin cargado desde esta carpeta
 claude plugin validate .      # manifiesto y hooks
-claude plugin test .          # 47 tests: SM-2, Pomodoro, estadísticas, Anki, PDF, panel, recuperación
+claude plugin test .          # 51 tests: SM-2, Pomodoro, estadísticas, Anki, PDF, panel, recuperación
 ```
 
 | Archivo | Contenido |

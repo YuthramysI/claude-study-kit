@@ -33,7 +33,9 @@ export function tituloDocumento(archivo: string): string {
   if (nombre === undefined) return base
   const detalle = resto.join('-')
   if (detalle === '') return nombre
-  return `${nombre} · ${/^\d{4}-\d{2}-\d{2}$/.test(detalle) ? fechaLarga(detalle) : detalle.replace(/-/g, ' ')}`
+  const conFecha = /^(\d{4}-\d{2}-\d{2})(?:-(\d+))?$/.exec(detalle)
+  if (conFecha) return `${nombre} · ${fechaLarga(conFecha[1] ?? '')}${conFecha[2] !== undefined ? ` (${conFecha[2]})` : ''}`
+  return `${nombre} · ${detalle.replace(/-/g, ' ')}`
 }
 
 /** Agrupa las tarjetas para el PDF: primero lo que toca hoy, luego por etapa. */

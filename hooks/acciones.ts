@@ -23,9 +23,10 @@ export async function pomodoro(h: Host, cfg: Config, verbo: VerboPomodoro, minut
   const p = await h.st.pomodoro.cambiar(p => {
     switch (verbo) {
       case 'iniciar':
-        return p.estado === 'pausado' && minutos === undefined
-          ? pomo.reanudar(p, ahora)
-          : pomo.iniciar(p, ahora, cfg.duraciones, minutos)
+        // sin minutos, «iniciar» no reinicia lo que ya corre: reanuda o deja correr
+        if (minutos === undefined && p.estado === 'pausado') return pomo.reanudar(p, ahora)
+        if (minutos === undefined && p.estado === 'corriendo') return p
+        return pomo.iniciar(p, ahora, cfg.duraciones, minutos)
       case 'pausar':
         return pomo.pausar(p, ahora)
       case 'reanudar':
@@ -63,43 +64,54 @@ export async function restaurarPomodoro(h: Host) {
 }
 
 /** Lo que el diagnóstico cuenta del temporizador de este módulo. */
-export const pulso = { latidos: 0, ultimo: 0, fases: 0, ultimoError: '' }
+const pulso = { latidos: 0, ultimo: 0, fases: 0, ultimoError: '' }
 
 /** Cómo fue el arranque de este módulo (session.start). */
 export const arranque = { inicio: 0, fin: 0, latido: 'sin arrancar', errores: [] as string[] }
 
-let temporizador: { cancel: () => void } | null = null
+const SIN_LATIDO_MS = 5000
 
-/** Arranca (o rearranca) el latido de un segundo con el Host dado. */
-export function arrancarLatido(h: Host, cfg: Config, origen: string) {
+let temporizador: { cancel: () => void } | null = null
+/** El Host de session.start: el único que debe sostener el temporizador. */
+let hostSesion: Host | null = null
+
+/**
+ * Arranca (o rearranca) el latido de un segundo. Con el Host de session.start
+ * queda como el de la sesión; cualquier rearranque posterior usa ese.
+ */
+export function arrancarLatido(h: Host, cfg: Config, origen: 'session.start' | 'respaldo') {
+  if (origen === 'session.start') hostSesion = h
+  const base = hostSesion ?? h
   temporizador?.cancel()
-  temporizador = h.every(1000, () => {
-    void latido(h, cfg).catch(err => {
+  temporizador = base.every(1000, () => {
+    void latido(base, cfg).catch(err => {
       pulso.ultimoError = String(err)
     })
   })
-  arranque.latido = origen
+  arranque.latido = origen === 'session.start' ? 'session.start' : `respaldo, ${pulso.latidos} latidos antes`
 }
 
 /**
- * Respaldo del temporizador, llamado desde cualquier comando, herramienta o
- * turno: si el latido lleva más de 5 s sin llegar, hace uno a mano (así una
- * fase vencida avisa igual) y vuelve a arrancar el temporizador.
+ * Respaldo del temporizador, llamado desde cada comando y cada turno: si el
+ * latido lleva más de 5 s sin llegar, hace uno a mano (así una fase vencida
+ * avisa igual) y vuelve a arrancar el temporizador de la sesión.
  */
 export async function vigilar(h: Host, cfg: Config) {
   const ahora = await h.now()
-  if (ahora - pulso.ultimo <= 5000) return
+  // recién arrancado aún no ha latido: se cuenta desde el arranque
+  const referencia = Math.max(pulso.ultimo, arranque.fin, arranque.inicio)
+  if (ahora - referencia <= SIN_LATIDO_MS) return
   await latido(h, cfg)
-  arrancarLatido(h, cfg, `respaldo (${new Date(ahora).toLocaleTimeString()})`)
+  arrancarLatido(h, cfg, 'respaldo')
 }
 
 /** Un latido por segundo: mueve el reloj y cambia de fase al llegar a cero. */
-export async function latido(h: Host, cfg: Config) {
+async function latido(h: Host, cfg: Config) {
+  const ahora = await h.now()
   pulso.latidos++
-  pulso.ultimo = await h.now()
+  pulso.ultimo = ahora
   const actual = await h.st.pomodoro.leer()
   if (actual.estado !== 'corriendo') return
-  const ahora = await h.now()
   if (!pomo.haTerminado(actual, ahora)) {
     await h.st.ahora.cambiar(() => ahora)
     h.status(pomo.lineaEstado(actual, ahora))
@@ -153,7 +165,7 @@ export async function probarAvisos(h: Host, cfg: Config): Promise<string> {
     r => (r.exitCode === 0 ? 'sonó (paplay)' : `paplay falló (${r.exitCode}): ${r.stderr.trim().slice(0, 120)}`),
     err => `no se pudo ejecutar paplay: ${String(err)}`,
   )
-  const hace = pulso.ultimo === 0 ? 'nunca' : `hace ${Math.round((ahora - pulso.ultimo) / 1000)} s`
+  const hace = pulso.ultimo === 0 ? 'nunca' : `hace ${Math.max(0, Math.round((ahora - pulso.ultimo) / 1000))} s`
   const arr = arranque.inicio === 0
     ? 'session.start no se ejecutó en este módulo'
     : `session.start ${arranque.fin === 0 ? 'NO terminó' : 'terminó'}; latido: ${arranque.latido}` +
@@ -170,7 +182,7 @@ export async function probarAvisos(h: Host, cfg: Config): Promise<string> {
 }
 
 /** Alarma: la campana varias veces; paplay donde lo hay (Linux), si no el reproductor del motor (macOS). */
-export function campana(h: Host, cfg: Pick<Config, 'toquesAlarma' | 'volumen'>) {
+function campana(h: Host, cfg: Pick<Config, 'toquesAlarma' | 'volumen'>) {
   const archivo = `${h.pluginRoot}/sounds/campana.wav`
   const volumen = Math.round((cfg.volumen / 100) * 65536)
   const ganancia = cfg.volumen / 100
@@ -213,8 +225,9 @@ export async function textoStats(h: Host): Promise<string> {
   const semana = stats.totales(s, stats.ultimosDias(s, hoy, 7)[0]?.dia)
   const total = stats.totales(s)
   const ultimos = stats.ultimosDias(s, hoy, 28)
+  const racha = stats.racha(s, hoy)
   return [
-    `🔥 Racha: ${stats.racha(s, hoy)} días (mejor: ${stats.mejorRacha(s)})`,
+    `🔥 Racha: ${racha} ${racha === 1 ? 'día' : 'días'} (mejor: ${stats.mejorRacha(s)})`,
     `Hoy: ${dia.pomodoros} 🍅 · ${stats.horas(dia.minutos)} · ${dia.repasos} tarjetas (${stats.porcentaje(dia.aciertos, dia.repasos)} aciertos)`,
     `7 días: ${semana.pomodoros} 🍅 · ${stats.horas(semana.minutos)} · ${semana.repasos} tarjetas`,
     `Total: ${total.pomodoros} 🍅 · ${stats.horas(total.minutos)} · ${total.repasos} tarjetas`,
@@ -290,7 +303,7 @@ export async function calificar(h: Host, id: string, nota: Nota) {
   const tarjetas: Tarjeta[] = await h.st.tarjetas.cambiar(ts =>
     ts.map(t => (t.id === id ? programar(t, nota, ahora) : t)),
   )
-  await h.st.repaso.cambiar(r => ({ mostrarReverso: false, hechasHoy: r.hechasHoy + 1 }))
+  await h.st.repaso.cambiar(() => ({ mostrarReverso: false }))
   await sumar(h, ahora, { repasos: 1, aciertos: nota === 'otra' ? 0 : 1 })
   await cuadernos.guardarTarjetas(h, info.ruta, tarjetas, ahora)
   if (pendientes(tarjetas, fecha(ahora)).length === 0) h.toast('¡Repaso de hoy completado! 🎉')
@@ -378,6 +391,7 @@ export async function generarPdf(h: Host, cfg: Config, abrir = true): Promise<st
 
   const perfil = '/tmp/estudio-pdf-navegador'
   const url = `file://${encodeURI(rutaHtml)}`
+  const fallos: string[] = []
   for (const nav of NAVEGADORES) {
     const r = await h
       .run([nav, '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
@@ -389,9 +403,14 @@ export async function generarPdf(h: Host, cfg: Config, abrir = true): Promise<st
       if (abrir) abrirArchivo(h, rutaPdf)
       return `📄 PDF de repaso listo: ${rutaPdf}\n${contenido}`
     }
+    const error = r.stderr.split('\n').map(l => l.trim()).filter(l => l !== '' && !l.startsWith('Fontconfig')).pop()
+    fallos.push(`${nav.split('/').pop() ?? nav} (código ${r.exitCode}${error !== undefined ? `: ${error.slice(0, 160)}` : ''})`)
   }
   if (abrir) abrirArchivo(h, rutaHtml)
-  return `No encontré Chrome, Chromium, Edge ni Brave para crear el PDF. Dejé el documento en:\n  ${rutaHtml}\n` +
+  const motivo = fallos.length > 0
+    ? `El navegador no pudo crear el PDF: ${fallos.join('; ')}.`
+    : 'No encontré Chrome, Chromium, Edge ni Brave para crear el PDF.'
+  return `${motivo} Dejé el documento en:\n  ${rutaHtml}\n` +
     `Ábrelo en el navegador y usa Imprimir → Guardar como PDF (con «Gráficos de fondo» activado).\n${contenido}`
 }
 

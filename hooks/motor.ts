@@ -6,7 +6,7 @@ import type { Host } from './host'
 import { INICIAL } from './pomodoro'
 
 const pomodoroA = atom({ plugin: 'estudio', key: 'pomodoro' } as const, INICIAL)
-const repasoA = atom({ plugin: 'estudio', key: 'repaso' } as const, { mostrarReverso: false, hechasHoy: 0 })
+const repasoA = atom({ plugin: 'estudio', key: 'repaso' } as const, { mostrarReverso: false })
 const pestanaA = atom({ plugin: 'estudio', key: 'pestana' } as const, 'pomodoro')
 const cuadernoA = atom({ plugin: 'estudio', key: 'cuaderno' } as const, null)
 const tarjetasA = atom({ plugin: 'estudio', key: 'tarjetas' } as const, [])
@@ -48,8 +48,6 @@ export function hostOf($: EngineInterface, home: string): Host {
     log: text => $.ui.log(text, { to: 'debug' }),
     linea: text => $.ui.log(text),
     openPane: pane => $.ui.open(pane),
-    registerCommand: spec => $.command.register(spec),
-    registerTool: spec => $.tool.register(spec),
     submitPrompt: text => $.prompt.submit({ text }),
     run: (argv, init) => $.process.run(argv, init),
     play: (asset, gain) => $.audio.play({ asset }, { gain }),

@@ -100,14 +100,6 @@ export function reloj(ms: number): string {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
-/** "▓▓▓▓░░░░░░" de lo transcurrido. */
-export function barra(p: Pomodoro, ahora: number, ancho = 20): string {
-  if (p.duracionMs <= 0) return '░'.repeat(ancho)
-  const hecho = Math.min(1, 1 - restante(p, ahora) / p.duracionMs)
-  const llenos = Math.round(hecho * ancho)
-  return '▓'.repeat(llenos) + '░'.repeat(ancho - llenos)
-}
-
 export function lineaEstado(p: Pomodoro, ahora: number): string | undefined {
   if (p.estado === 'parado') return undefined
   const icono = p.fase === 'enfoque' ? '🍅' : '☕'

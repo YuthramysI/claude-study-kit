@@ -165,3 +165,13 @@ test('la pestaña Stats muestra racha y totales, en terminal y escritorio', asyn
     await ui.unmount()
   }
 })
+
+test('releer un tarjetas.json dañado sin copia válida no crea copias nuevas cada vez', async ($, on) => {
+  const { archivos } = motor(on)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'cuaderno', args: 'arte', ...CMD })
+  const ruta = '/home/prueba/estudio/arte'
+  archivos.set(`${ruta}/tarjetas.json`, '{roto')
+  for (let i = 0; i < 3; i++) await $.command.run({ command: 'cuaderno', args: 'arte', ...CMD })
+  expect([...archivos.keys()].filter(k => k.includes('tarjetas.danado-')).length).toBe(1)
+})

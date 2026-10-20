@@ -39,7 +39,8 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    home = (await $.env.get('HOME')) ?? ''
+    // HOME en Linux y macOS; USERPROFILE en Windows
+    home = ((await $.env.get('HOME')) ?? (await $.env.get('USERPROFILE')) ?? '').replace(/\\/g, '/')
     const h = hostOf($, home)
     host = h
     acc.arranque.inicio = await $.clock.now()
@@ -49,24 +50,27 @@ export const register: Register = (on, options) => {
     } catch (err) {
       acc.arranque.errores.push(`latido: ${mensaje(err)}`)
     }
-    // cada registro por separado: si uno es rechazado, los demás siguen
-    const nombres = ['/estudio', '/pomodoro', '/promodoro', '/cuaderno', '/repasar', '/anki', 'cuaderno_activo', 'guardar_tarjetas', 'diagnostico_pomodoro', 'generar_pdf_repaso', 'leer_en_voz_alta']
-    const registros = await Promise.allSettled([
-      $.command.register({ name: 'estudio', description: 'Abre el panel de estudio (Pomodoro, repaso, cuaderno, estadísticas)', argumentHint: '[pomodoro|repaso|cuaderno|stats|pdf|callar|ayuda]' }),
-      $.command.register({ name: 'pomodoro', description: 'Controla el Pomodoro', argumentHint: ARG_POMODORO, immediate: true }),
-      $.command.register({ name: 'promodoro', description: 'Igual que /pomodoro', argumentHint: ARG_POMODORO, immediate: true }),
-      $.command.register({ name: 'cuaderno', description: 'Crea o elige el cuaderno de estudio activo', argumentHint: '[nombre]' }),
-      $.command.register({ name: 'repasar', description: 'Repasa las tarjetas pendientes de hoy' }),
-      $.command.register({ name: 'anki', description: 'Resumen de tarjetas; exportarlas a Anki o importarlas desde Anki/CSV', argumentHint: '[exportar|importar <archivo>]' }),
-      $.tool.register({
+    // cada registro por separado: si uno es rechazado, los demás siguen y el fallo queda anotado
+    const registrar = (nombre: string, registro: Promise<unknown>) =>
+      registro.catch(err => {
+        acc.arranque.errores.push(`${nombre}: ${mensaje(err)}`)
+      })
+    await Promise.all([
+      registrar('/estudio', $.command.register({ name: 'estudio', description: 'Abre el panel de estudio (Pomodoro, repaso, cuaderno, estadísticas)', argumentHint: '[pomodoro|repaso|cuaderno|stats|pdf|callar|ayuda]' })),
+      registrar('/pomodoro', $.command.register({ name: 'pomodoro', description: 'Controla el Pomodoro', argumentHint: ARG_POMODORO, immediate: true })),
+      registrar('/promodoro', $.command.register({ name: 'promodoro', description: 'Igual que /pomodoro', argumentHint: ARG_POMODORO, immediate: true })),
+      registrar('/cuaderno', $.command.register({ name: 'cuaderno', description: 'Crea o elige el cuaderno de estudio activo', argumentHint: '[nombre]' })),
+      registrar('/repasar', $.command.register({ name: 'repasar', description: 'Repasa las tarjetas pendientes de hoy' })),
+      registrar('/anki', $.command.register({ name: 'anki', description: 'Resumen de tarjetas; exportarlas a Anki o importarlas desde Anki/CSV', argumentHint: '[exportar|importar <archivo>]' })),
+      registrar('cuaderno_activo', $.tool.register({
         name: 'cuaderno_activo',
         isDeferred: false,
         description:
           'Devuelve el cuaderno de estudio activo del plugin estudio: su nombre, su carpeta, las rutas absolutas de sus fuentes ' +
           '(PDF, notas...) y la carpeta salidas/ donde guardar guías, quizzes y guiones. Úsala antes de leer las fuentes.',
         inputSchema: { type: 'object', properties: {} },
-      }),
-      $.tool.register({
+      })),
+      registrar('guardar_tarjetas', $.tool.register({
         name: 'guardar_tarjetas',
         isDeferred: false,
         description:
@@ -92,21 +96,22 @@ export const register: Register = (on, options) => {
           },
           required: ['tarjetas'],
         },
-      }),
-      $.tool.register({
+      })),
+      registrar('diagnostico_pomodoro', $.tool.register({
         name: 'diagnostico_pomodoro',
         description: 'Prueba los avisos del Pomodoro del plugin estudio (sonido, notificación, línea en el chat) y devuelve qué funcionó y el estado del temporizador. Úsala cuando el usuario diga que no le llegan los avisos.',
         inputSchema: { type: 'object', properties: {} },
-      }),
-      $.tool.register({
+      })),
+      registrar('generar_pdf_repaso', $.tool.register({
         name: 'generar_pdf_repaso',
+        isDeferred: false,
         description:
           'Genera el PDF de repaso del cuaderno activo del plugin estudio (portada con estadísticas, todas las tarjetas, ' +
           'las guías/quizzes/guiones de salidas/ y tarjetas para recortar) y lo abre. Devuelve la ruta. ' +
           'Úsala cuando el usuario pida su repaso, apuntes o tarjetas en PDF o para imprimir.',
         inputSchema: { type: 'object', properties: {} },
-      }),
-      $.tool.register({
+      })),
+      registrar('leer_en_voz_alta', $.tool.register({
         name: 'leer_en_voz_alta',
         isDeferred: false,
         description:
@@ -117,11 +122,8 @@ export const register: Register = (on, options) => {
           properties: { texto: { type: 'string' } },
           required: ['texto'],
         },
-      }),
+      })),
     ])
-    registros.forEach((r, i) => {
-      if (r.status === 'rejected') acc.arranque.errores.push(`${nombres[i] ?? i}: ${mensaje(r.reason)}`)
-    })
     const fallo = (que: string) => (err: unknown) => {
       acc.arranque.errores.push(`${que}: ${mensaje(err)}`)
       h.log(`estudio: ${que}: ${String(err)}`)
@@ -148,7 +150,7 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'promodoro' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoPomodoro($, e.args, cfg, home))))
   on('command.run', { command: 'cuaderno' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoCuaderno($, e.args, cfg, home))))
   on('command.run', { command: 'repasar' }, $ => conVigilancia($, cfg, home, () => seguro(() => comandoRepasar($, cfg, home))))
-  on('command.run', { command: 'anki' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoTarjetas($, e.args, home))))
+  on('command.run', { command: 'anki' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoAnki($, e.args, home))))
 
   // ── Herramientas para Claude ─────────────────────────────────────────────
 
@@ -278,7 +280,7 @@ async function comandoRepasar($: EngineInterface, cfg: Config, home: string) {
   return { text: `${abierto} ${n} ${n === 1 ? 'tarjeta pendiente' : 'tarjetas pendientes'} hoy: pulsa m para ver la respuesta y 1-4 para calificar.` }
 }
 
-async function comandoTarjetas($: EngineInterface, args: string, home: string) {
+async function comandoAnki($: EngineInterface, args: string, home: string) {
   const h = hostOf($, home)
   const [sub = '', ...resto] = args.trim().split(/\s+/)
   switch (sub.toLowerCase()) {

@@ -82,8 +82,9 @@ export async function leerTarjetas(h: Host, ruta: string): Promise<Lectura> {
   const leidas = interpretar(texto)
   if (leidas !== undefined) return { tarjetas: leidas }
 
-  const danado = `${ruta}/tarjetas.danado-${Date.now().toString(36)}.json`
-  await h.fs.write(danado, texto)
+  // un nombre por contenido: releer el mismo archivo dañado no crea copias nuevas
+  const danado = `${ruta}/tarjetas.danado-${huella(texto)}.json`
+  if (!(await h.fs.exists(danado))) await h.fs.write(danado, texto)
   for (const copia of await copiasDeSeguridad(h, ruta)) {
     const recuperadas = interpretar(await h.fs.read(copia).catch(() => ''))
     if (recuperadas === undefined) continue

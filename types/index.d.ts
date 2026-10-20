@@ -28,7 +28,7 @@ export type Tarjeta = {
   ultimo: number
 }
 
-export type Repaso = { mostrarReverso: boolean; hechasHoy: number }
+export type Repaso = { mostrarReverso: boolean }
 
 export type Pestana = 'pomodoro' | 'repaso' | 'cuaderno' | 'stats'
 
