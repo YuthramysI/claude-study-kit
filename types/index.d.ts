@@ -52,13 +52,51 @@ export type Repaso = {
   /** la respuesta escrita para la tarjeta actual y su corrección */
   respuesta?: { id: string; texto: string; pensando: boolean; veredicto?: Veredicto }
   /** la última calificación, para deshacerla */
-  deshacer?: { previa: Tarjeta; dia: string; acierto: boolean }
+  deshacer?: { previa: Tarjeta; dia: string; acierto: boolean; nota?: NotaRepaso }
 }
 
-export type Pestana = 'pomodoro' | 'repaso' | 'cuaderno' | 'mapa' | 'stats'
+export type Pestana = 'pomodoro' | 'repaso' | 'cuaderno' | 'mapa' | 'stats' | 'logros'
 
-/** Actividad de un día; `temas`: minutos de enfoque por tarea. */
-export type DiaStats = { pomodoros: number; minutos: number; repasos: number; aciertos: number; temas?: Record<string, number> }
+export type VistaStats = 'general' | 'repaso' | 'habitos'
+
+/** Un tramo de estudio seguido (sin pausas de más de 30 min). */
+export type Sesion = {
+  id: string
+  inicio: number
+  fin: number
+  pomodoros: number
+  minutos: number
+  repasos: number
+  aciertos: number
+  /** tarjetas creadas */
+  creadas: number
+  temas: Record<string, number>
+  cuadernos: string[]
+}
+
+/** El plan de examen de un cuaderno (plan.json en su carpeta). */
+export type PlanExamen = { examen: string; titulo?: string; metaPomodoros?: number }
+
+/** Un examen simulado en curso: su cronómetro. */
+export type Simulacro = { inicio: number; terminaEn: number; minutos: number; preguntas: number; avisado: boolean }
+
+/** Un examen simulado hecho ese día. */
+export type ResultadoExamen = { nota: number; preguntas: number; cuaderno: string; titulo?: string }
+
+/** Actividad de un día. */
+export type DiaStats = {
+  pomodoros: number
+  minutos: number
+  repasos: number
+  aciertos: number
+  /** minutos de enfoque por tarea */
+  temas?: Record<string, number>
+  /** minutos de enfoque por hora del día ("0"–"23") */
+  horas?: Record<string, number>
+  /** repasos por nota: otra, dificil, bien, facil */
+  notas?: Record<string, number>
+  examenes?: ResultadoExamen[]
+}
 
 /** Actividad por fecha YYYY-MM-DD. */
 export type Stats = Record<string, DiaStats>
@@ -86,6 +124,19 @@ declare module 'claude-code' {
       editandoTarea: boolean
       /** el mapa mental que se ve en el panel (archivo de salidas/) */
       mapa: string | null
+      vistaStats: VistaStats
+      /** la sesión de estudio en curso (o la última) */
+      sesion: Sesion | null
+      /** las sesiones cerradas, la más reciente primero */
+      sesiones: Sesion[]
+      /** logros conseguidos: id → fecha */
+      logros: Record<string, string>
+      /** contadores para los logros: pdfs, cuadernos, mapas */
+      contadores: Record<string, number>
+      /** el plan de examen del cuaderno activo */
+      plan: PlanExamen | null
+      editandoPlan: boolean
+      simulacro: Simulacro | null
     }
   }
 }

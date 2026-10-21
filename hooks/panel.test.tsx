@@ -216,3 +216,28 @@ test('tareas: cambiarla desde el panel y elegir una reciente', async ($, on) => 
   }
   expect((await $.command.run({ command: 'pomodoro', args: 'tarea', ...cmd })).text).toContain('Tarea actual: Inglés')
 })
+
+test('logros: la primera vez se apuntan en silencio; después avisa al desbloquear y subir de nivel', async ($, on) => {
+  const clock = motor(on)
+  const avisos: string[] = []
+  on('ui.toast', (_, e) => {
+    avisos.push(e.text)
+    return { value: undefined }
+  })
+  on('ui.log', () => ({ value: undefined }))
+  const cmd = { origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } } as const
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'pomodoro', args: '1', ...cmd })
+  await clock.advance(61_000)
+  expect(avisos.some(a => a.includes('🏆 ¡Logro desbloqueado! 🍅 Primer tomate'))).toBe(true)
+
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...PANEL, surface })
+    await ui.press({ key: 'tab-logros' })
+    expect(await ui.find({ type: 'Text', text: /🍅 Primer tomate/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /🔒 Constancia/ })).toBeDefined()
+    if (surface === 'terminal') expect(await ui.find({ type: 'Text', text: /Nivel 1 · Novato/ })).toBeDefined()
+    else expect(String((await ui.find({ type: 'Svg' }))?.props.alt)).toContain('Nivel 1')
+    await ui.unmount()
+  }
+})

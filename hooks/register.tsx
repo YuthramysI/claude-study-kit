@@ -10,15 +10,18 @@ import { hostOf } from './motor'
 import { registrarPanel } from './panel'
 import { fecha, pendientes } from './srs'
 
-const PESTANAS: readonly Pestana[] = ['pomodoro', 'repaso', 'cuaderno', 'mapa', 'stats']
+const PESTANAS: readonly Pestana[] = ['pomodoro', 'repaso', 'cuaderno', 'mapa', 'stats', 'logros']
 
 const AYUDA = `Comandos de estudio:
-  /estudio [pomodoro|repaso|cuaderno|mapa|stats|callar]  panel de estudio
+  /estudio [pomodoro|repaso|cuaderno|mapa|stats|logros]  panel de estudio
   /estudio pdf                                       PDF de repaso del cuaderno activo
+  /estudio resumen                                   resumen de tu sesión y consejo del coach
+  /estudio informe [pasada]                          tarjeta PNG de tu semana para compartir
   /pomodoro [iniciar [min] [tarea]|tarea <texto>|pausar|reanudar|saltar|parar|estado]
   /cuaderno [nombre]                                 crear o elegir cuaderno
   /repasar                                           repasar tarjetas pendientes
   /anki [exportar|importar <archivo>]                tarjetas: resumen, exportar a Anki, importar
+  /examen [<fecha> [título]|meta <n>|borrar]         plan de examen: cuenta atrás y meta diaria
 Con Claude: /estudio:preguntar · /estudio:resumir · /estudio:tarjetas · /estudio:guia · /estudio:mapa · /estudio:quiz · /estudio:audio`
 
 const VERBOS: Record<string, acc.VerboPomodoro> = {
@@ -56,11 +59,12 @@ export const register: Register = (on, options) => {
         acc.arranque.errores.push(`${nombre}: ${mensaje(err)}`)
       })
     await Promise.all([
-      registrar('/estudio', $.command.register({ name: 'estudio', description: 'Abre el panel de estudio (Pomodoro, repaso, cuaderno, estadísticas)', argumentHint: '[pomodoro|repaso|cuaderno|mapa|stats|pdf|callar|ayuda]' })),
+      registrar('/estudio', $.command.register({ name: 'estudio', description: 'Abre el panel de estudio (Pomodoro, repaso, cuaderno, estadísticas)', argumentHint: '[pomodoro|repaso|cuaderno|mapa|stats|logros|pdf|resumen|informe|callar|ayuda]' })),
       registrar('/pomodoro', $.command.register({ name: 'pomodoro', description: 'Controla el Pomodoro', argumentHint: ARG_POMODORO, immediate: true })),
       registrar('/promodoro', $.command.register({ name: 'promodoro', description: 'Igual que /pomodoro', argumentHint: ARG_POMODORO, immediate: true })),
       registrar('/cuaderno', $.command.register({ name: 'cuaderno', description: 'Crea o elige el cuaderno de estudio activo', argumentHint: '[nombre]' })),
       registrar('/repasar', $.command.register({ name: 'repasar', description: 'Repasa las tarjetas pendientes de hoy' })),
+      registrar('/examen', $.command.register({ name: 'examen', description: 'Plan de examen del cuaderno activo: fecha, meta diaria y previsión', argumentHint: '[<fecha> [título]|meta <n>|borrar]' })),
       registrar('/anki', $.command.register({ name: 'anki', description: 'Resumen de tarjetas; exportarlas a Anki o importarlas desde Anki/CSV', argumentHint: '[exportar|importar <archivo>]' })),
       registrar('cuaderno_activo', $.tool.register({
         name: 'cuaderno_activo',
@@ -108,6 +112,55 @@ export const register: Register = (on, options) => {
           properties: { archivos: { type: 'array', items: { type: 'string' } } },
         },
       })),
+      registrar('resumen_estudio', $.tool.register({
+        name: 'resumen_estudio',
+        isDeferred: false,
+        description:
+          'Devuelve en JSON cómo va el estudio del usuario según el plugin estudio: hoy, últimos 7 días, racha, tiempo por tema, ' +
+          'mejores horas, aciertos, sesión en curso y últimas, tarjetas del cuaderno activo, repasos previstos y exámenes. ' +
+          'Úsala cuando pregunte cómo va, cuánto ha estudiado o qué debería repasar.',
+        inputSchema: { type: 'object', properties: {} },
+      })),
+      registrar('examen_cronometro', $.tool.register({
+        name: 'examen_cronometro',
+        isDeferred: false,
+        description:
+          'Cronómetro del examen simulado del plugin estudio. accion "iniciar" (con minutos y preguntas) lo pone en la barra de estado ' +
+          'y avisa al usuario cuando se acaba el tiempo; "parar" lo detiene y dice cuánto se usó; "estado" dice cuánto queda.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            accion: { type: 'string', enum: ['iniciar', 'parar', 'estado'] },
+            minutos: { type: 'number' },
+            preguntas: { type: 'number' },
+          },
+          required: ['accion'],
+        },
+      })),
+      registrar('registrar_examen', $.tool.register({
+        name: 'registrar_examen',
+        isDeferred: false,
+        description:
+          'Guarda la nota (0 a 10) de un examen simulado del cuaderno activo del plugin estudio, para su evolución en las estadísticas ' +
+          'y los logros; la compara con la anterior. Llámala una vez al terminar de corregir.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            nota: { type: 'number', minimum: 0, maximum: 10 },
+            preguntas: { type: 'number' },
+            titulo: { type: 'string' },
+          },
+          required: ['nota', 'preguntas'],
+        },
+      })),
+      registrar('generar_informe_semanal', $.tool.register({
+        name: 'generar_informe_semanal',
+        isDeferred: false,
+        description:
+          'Genera y abre la tarjeta PNG (1080×1350) del informe semanal de estudio del plugin estudio: horas, pomodoros, tarjetas, ' +
+          'aciertos, racha, nivel, temas y logros. semana "actual" o "pasada". Úsala cuando el usuario quiera su resumen semanal para compartir.',
+        inputSchema: { type: 'object', properties: { semana: { type: 'string', enum: ['actual', 'pasada'] } } },
+      })),
       registrar('diagnostico_pomodoro', $.tool.register({
         name: 'diagnostico_pomodoro',
         description: 'Prueba los avisos del Pomodoro del plugin estudio (sonido, notificación, línea en el chat) y devuelve qué funcionó y el estado del temporizador. Úsala cuando el usuario diga que no le llegan los avisos.',
@@ -141,11 +194,24 @@ export const register: Register = (on, options) => {
     }
     await acc.cargarStats(h, cfg).catch(fallo('estadísticas'))
     await acc.cargarTareas(h).catch(fallo('tareas'))
+    await acc.cargarSesiones(h).catch(fallo('sesiones'))
+    await acc.cargarLogros(h).catch(fallo('logros'))
+    await acc.cargarSimulacro(h).catch(fallo('simulacro'))
     await acc.restaurarPomodoro(h).catch(fallo('pomodoro'))
     await acc.refrescarCuaderno(h, cfg).catch(fallo('cuaderno'))
-    if (cfg.recordatorio) h.after(3000, () => void acc.recordatorio(h, cfg).catch(fallo('recordatorio')))
+    if (cfg.recordatorio) {
+      h.after(3000, () => void acc.recordatorio(h, cfg).catch(fallo('recordatorio')))
+      h.after(6000, () => void acc.recordarInforme(h).catch(fallo('informe')))
+    }
     acc.arranque.fin = await $.clock.now()
     return started
+  })
+
+  // al cerrar Claude Code, el diario del día queda al día
+  on('session.end', async ($, e, next) => {
+    const h = hostOf($, home)
+    await acc.escribirDiario(h, cfg, fecha(await $.clock.now())).catch(() => undefined)
+    return next(e)
   })
 
   // respaldo del temporizador en cada turno
@@ -162,6 +228,7 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'promodoro' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoPomodoro($, e.args, cfg, home))))
   on('command.run', { command: 'cuaderno' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoCuaderno($, e.args, cfg, home))))
   on('command.run', { command: 'repasar' }, $ => conVigilancia($, cfg, home, () => seguro(() => comandoRepasar($, cfg, home))))
+  on('command.run', { command: 'examen' }, ($, e) => conVigilancia($, cfg, home, () => seguro(async () => ({ text: await acc.fijarPlanTexto(hostOf($, home), cfg, e.args) }))))
   on('command.run', { command: 'anki' }, ($, e) => conVigilancia($, cfg, home, () => seguro(() => comandoAnki($, e.args, cfg, home))))
 
   // ── Herramientas para Claude ─────────────────────────────────────────────
@@ -197,7 +264,7 @@ export const register: Register = (on, options) => {
       return [{ frente, reverso, ...(typeof fuente === 'string' ? { fuente } : {}) }]
     })
     try {
-      return { result: await acc.agregarTarjetas(h, nuevas) }
+      return { result: await acc.agregarTarjetas(h, cfg, nuevas) }
     } catch (err) {
       return { result: mensaje(err) }
     }
@@ -214,6 +281,30 @@ export const register: Register = (on, options) => {
       return { result: mensaje(err) }
     }
   }).catch(() => ({ result: 'Error interno del plugin estudio al marcar las fuentes.' }))
+
+  on('tool.call', { tool: 'mcp__estudio__resumen_estudio' }, async $ => ({
+    result: JSON.stringify(await acc.datosEstudio(hostOf($, home), cfg), null, 2),
+  })).catch(() => ({ result: 'Error interno del plugin estudio al resumir el estudio.' }))
+
+  on('tool.call', { tool: 'mcp__estudio__examen_cronometro' }, async ($, e) => {
+    const { accion, minutos, preguntas } = e as { accion?: unknown; minutos?: unknown; preguntas?: unknown }
+    if (accion !== 'iniciar' && accion !== 'parar' && accion !== 'estado') return { result: 'accion debe ser iniciar, parar o estado.' }
+    return {
+      result: await acc.cronometroSimulacro(hostOf($, home), accion, typeof minutos === 'number' ? minutos : undefined, typeof preguntas === 'number' ? preguntas : undefined),
+    }
+  }).catch(() => ({ result: 'Error interno del plugin estudio en el cronómetro.' }))
+
+  on('tool.call', { tool: 'mcp__estudio__registrar_examen' }, async ($, e) => {
+    const { nota, preguntas, titulo } = e as { nota?: unknown; preguntas?: unknown; titulo?: unknown }
+    if (typeof nota !== 'number' || !Number.isFinite(nota)) return { result: 'Falta `nota` (de 0 a 10).' }
+    return {
+      result: await acc.registrarExamen(hostOf($, home), cfg, nota, typeof preguntas === 'number' ? preguntas : 1, typeof titulo === 'string' ? titulo : undefined),
+    }
+  }).catch(() => ({ result: 'Error interno del plugin estudio al guardar el examen.' }))
+
+  on('tool.call', { tool: 'mcp__estudio__generar_informe_semanal' }, async ($, e) => ({
+    result: await acc.generarInforme(hostOf($, home), cfg, (e as { semana?: unknown }).semana === 'pasada'),
+  })).catch(() => ({ result: 'Error interno del plugin estudio al generar el informe.' }))
 
   on('tool.call', { tool: 'mcp__estudio__diagnostico_pomodoro' }, async $ => ({
     result: await acc.probarAvisos(hostOf($, home), cfg),
@@ -257,6 +348,8 @@ async function comandoEstudio($: EngineInterface, args: string, cfg: Config, hom
   }
   if (arg === 'ayuda' || arg === 'help') return { text: AYUDA }
   if (arg === 'pdf') return { text: await acc.generarPdf(h, cfg) }
+  if (arg === 'resumen' || arg === 'sesion' || arg === 'sesión') return { text: await acc.resumenSesion(h, cfg) }
+  if (arg === 'informe' || arg === 'informe pasada') return { text: await acc.generarInforme(h, cfg, arg.endsWith('pasada')) }
   const pestana = arg === '' ? undefined : PESTANAS.find(p => p.startsWith(arg))
   if (arg !== '' && pestana === undefined) return { text: `No conozco «${arg}».\n${AYUDA}` }
   const abierto = await abrirPanel(h, cfg, pestana)
@@ -311,7 +404,7 @@ async function comandoCuaderno($: EngineInterface, args: string, cfg: Config, ho
 async function comandoRepasar($: EngineInterface, cfg: Config, home: string) {
   const h = hostOf($, home)
   await acc.refrescarCuaderno(h, cfg)
-  const n = pendientes(await h.st.tarjetas.leer(), fecha(await $.clock.now()), cfg.nuevasPorDia).length
+  const n = pendientes(await h.st.tarjetas.leer(), fecha(await $.clock.now()), await acc.limiteNuevas(h, cfg)).length
   const abierto = await abrirPanel(h, cfg, 'repaso')
   if (n === 0) return { text: `${abierto} No tienes tarjetas pendientes hoy. 🎉` }
   return { text: `${abierto} ${n} ${n === 1 ? 'tarjeta pendiente' : 'tarjetas pendientes'} hoy: pulsa m para ver la respuesta y 1-4 para calificar.` }
@@ -331,7 +424,7 @@ async function comandoAnki($: EngineInterface, args: string, cfg: Config, home: 
     case 'import': {
       const ruta = resto.join(' ').replace(/^["']|["']$/g, '')
       if (ruta === '') return { text: 'Indica el archivo: /anki importar <archivo.txt|.csv>' }
-      return { text: await acc.importarAnki(h, ruta) }
+      return { text: await acc.importarAnki(h, cfg, ruta) }
     }
     default:
       return { text: 'Usa: /anki · /anki exportar · /anki importar <archivo>' }

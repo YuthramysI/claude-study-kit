@@ -4,6 +4,21 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 
 ## [Sin publicar]
 
+## [1.3.0] - 2026-10-20
+
+### Añadido
+- **Estadísticas pro**: la pestaña Stats se divide en General, Repaso y Hábitos. Gráficos nuevos: pronóstico de repasos a 30 días, curva de aciertos, notas por tipo, histograma de dificultad FSRS, mapa hora × día de la semana y mejores horas. Los días guardan los minutos por hora, las notas por tipo y los exámenes.
+- **Sesiones de estudio**: tramos de actividad seguida (pausas de hasta 30 min) con duración, pomodoros, temas, repasos y tarjetas creadas; la en curso, en la pestaña Pomodoro; las recientes, en Hábitos.
+- **Diario** diario en `~/estudio/diario/AAAA-MM-DD.md` y **coach**: `/estudio resumen` resume la sesión y el día, y Claude (modelo pequeño) da 2–3 consejos con tus datos. Herramienta `resumen_estudio` para que Claude responda «¿cómo voy?».
+- **Logros y niveles**: XP calculada de tus datos, niveles con título y 24 insignias, con aviso al desbloquear y al subir de nivel. Pestaña 🏆 Logros.
+- **Plan de examen**: `/examen <fecha> [título]` (también «en 20 días», «15 de noviembre»), `meta`, `borrar`; cuenta atrás, meta diaria de tarjetas nuevas y pomodoros, previsión FSRS de recuerdo el día del examen y aviso si vas atrasado. El límite diario de nuevas sube solo si el plan lo necesita. Se ve en las pestañas Cuaderno y Pomodoro, y en la portada del PDF.
+- **Examen simulado**: skill `/estudio:simulacro` y herramientas `examen_cronometro` y `registrar_examen`. Cronómetro en la barra de estado (junto al del pomodoro) con aviso al acabar; las notas y su evolución salen en Stats.
+- **Informe semanal compartible**: `/estudio informe [pasada]`, botón 📸 en Stats y herramienta `generar_informe_semanal`; imagen PNG de 1080×1350 en `~/estudio/informes/`. Recordatorio los lunes.
+
+### Cambiado
+- La conversión con el navegador (PDF y PNG) comparte una sola función.
+- `fechaLarga` y los nombres de los meses viven en `srs.ts`, en vez de duplicados.
+
 ## [1.2.0] - 2026-10-20
 
 ### Añadido

@@ -1,5 +1,5 @@
 // Estadísticas de estudio, en funciones puras.
-import type { DiaStats, Stats, Tarjeta } from '../types'
+import type { DiaStats, ResultadoExamen, Stats, Tarjeta } from '../types'
 import { sumarDias } from './srs'
 
 export const DIAS_GUARDADOS = 400
@@ -17,17 +17,42 @@ export function registrar(stats: Stats, dia: string, cambio: Partial<DiaStats>):
     minutos: Math.max(0, previo.minutos + (cambio.minutos ?? 0)),
     repasos: Math.max(0, previo.repasos + (cambio.repasos ?? 0)),
     aciertos: Math.max(0, previo.aciertos + (cambio.aciertos ?? 0)),
-    ...sumarTemas(previo.temas, cambio.temas),
+    ...sumarMapa('temas', previo.temas, cambio.temas),
+    ...sumarMapa('horas', previo.horas, cambio.horas),
+    ...sumarMapa('notas', previo.notas, cambio.notas),
+    ...(previo.examenes !== undefined || cambio.examenes !== undefined
+      ? { examenes: [...(previo.examenes ?? []), ...(cambio.examenes ?? [])].slice(-20) }
+      : {}),
   }
   const dias = Object.keys({ ...stats, [dia]: nuevo }).sort().slice(-DIAS_GUARDADOS)
   return Object.fromEntries(dias.map(d => [d, d === dia ? nuevo : (stats[d] ?? VACIO)]))
 }
 
-function sumarTemas(a: Record<string, number> | undefined, b: Record<string, number> | undefined): { temas?: Record<string, number> } {
+function sumarMapa<K extends 'temas' | 'horas' | 'notas'>(
+  campo: K, a: Record<string, number> | undefined, b: Record<string, number> | undefined,
+): Partial<Record<K, Record<string, number>>> {
   if (a === undefined && b === undefined) return {}
-  const temas: Record<string, number> = { ...(a ?? {}) }
-  for (const [tema, min] of Object.entries(b ?? {})) temas[tema] = Math.max(0, (temas[tema] ?? 0) + min)
-  return { temas }
+  const suma: Record<string, number> = { ...(a ?? {}) }
+  for (const [clave, n] of Object.entries(b ?? {})) suma[clave] = Math.max(0, (suma[clave] ?? 0) + n)
+  return { [campo]: suma } as Partial<Record<K, Record<string, number>>>
+}
+
+/**
+ * Reparte un intervalo de enfoque por horas del día: un pomodoro de 10:50 a
+ * 11:15 suma 10 min a las 10 y 15 a las 11.
+ */
+export function minutosPorHora(inicio: number, fin: number): Record<string, number> {
+  const horas: Record<string, number> = {}
+  let t = inicio
+  while (t < fin) {
+    const d = new Date(t)
+    const siguiente = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours() + 1).getTime()
+    const tramo = Math.min(fin, siguiente) - t
+    const clave = String(d.getHours())
+    horas[clave] = Math.round(((horas[clave] ?? 0) + tramo / 60_000) * 10) / 10
+    t = Math.min(fin, siguiente)
+  }
+  return horas
 }
 
 /** Minutos de enfoque por tema desde `desde` (incluido), de más a menos. */
@@ -104,6 +129,41 @@ export function horas(minutos: number): string {
   return h === 0 ? `${m} min` : `${h} h ${String(m).padStart(2, '0')} min`
 }
 
+/** Minutos por día de la semana (0 = lunes) y hora, en los últimos `dias` días. */
+export function horario(stats: Stats, hoy: string, dias = 56): number[][] {
+  const matriz = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0))
+  for (const { dia, datos } of ultimosDias(stats, hoy, dias)) {
+    const fila = (new Date(`${dia}T12:00:00`).getDay() + 6) % 7
+    for (const [hora, min] of Object.entries(datos.horas ?? {})) {
+      const h = Number(hora)
+      const celdas = matriz[fila]
+      if (celdas !== undefined && h >= 0 && h < 24) celdas[h] = (celdas[h] ?? 0) + min
+    }
+  }
+  return matriz
+}
+
+/** Las horas del día con más enfoque, de más a menos (solo las que tienen algo). */
+export function mejoresHoras(stats: Stats, hoy: string, dias = 56, cuantas = 3): { hora: number; minutos: number }[] {
+  const suma = Array.from({ length: 24 }, () => 0)
+  for (const fila of horario(stats, hoy, dias)) fila.forEach((m, h) => (suma[h] = (suma[h] ?? 0) + m))
+  return suma
+    .map((minutos, hora) => ({ hora, minutos }))
+    .filter(x => x.minutos > 0)
+    .sort((a, b) => b.minutos - a.minutos || a.hora - b.hora)
+    .slice(0, cuantas)
+}
+
+/** % de aciertos por día (null si ese día no hubo repasos). */
+export function aciertosPorDia(stats: Stats, hoy: string, dias: number): (number | null)[] {
+  return ultimosDias(stats, hoy, dias).map(({ datos }) => (datos.repasos === 0 ? null : Math.round((datos.aciertos / datos.repasos) * 100)))
+}
+
+/** Todos los exámenes simulados, del más antiguo al más reciente. */
+export function examenes(stats: Stats): (ResultadoExamen & { dia: string })[] {
+  return Object.keys(stats).sort().flatMap(dia => (stats[dia]?.examenes ?? []).map(e => ({ ...e, dia })))
+}
+
 /** Tarjetas por etapa: nuevas (nunca repasadas), aprendiendo (< 21 d) y maduras. */
 export function etapas(tarjetas: readonly Tarjeta[]): { nuevas: number; aprendiendo: number; maduras: number } {
   let nuevas = 0
@@ -137,13 +197,35 @@ export function sanear(v: unknown): Stats {
   for (const [dia, d] of Object.entries(v as Record<string, unknown>)) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dia) || typeof d !== 'object' || d === null) continue
     const o = d as Record<string, unknown>
-    const temas: Record<string, number> = {}
-    if (typeof o.temas === 'object' && o.temas !== null) {
-      for (const [tema, min] of Object.entries(o.temas as Record<string, unknown>)) if (num(min) > 0) temas[tema.slice(0, 60)] = num(min)
+    const mapa = (v: unknown, claves?: RegExp): Record<string, number> | undefined => {
+      if (typeof v !== 'object' || v === null) return undefined
+      const salida: Record<string, number> = {}
+      for (const [k, n] of Object.entries(v as Record<string, unknown>)) {
+        if (num(n) > 0 && (claves === undefined || claves.test(k))) salida[k.slice(0, 60)] = num(n)
+      }
+      return Object.keys(salida).length > 0 ? salida : undefined
     }
+    const temas = mapa(o.temas)
+    const horas = mapa(o.horas, /^(1?\d|2[0-3])$/)
+    const notas = mapa(o.notas, /^(otra|dificil|bien|facil)$/)
+    const examenes = Array.isArray(o.examenes)
+      ? o.examenes.flatMap((x: unknown) => {
+        if (typeof x !== 'object' || x === null) return []
+        const e = x as Record<string, unknown>
+        if (typeof e.nota !== 'number' || !Number.isFinite(e.nota)) return []
+        return [{
+          nota: Math.min(10, Math.max(0, e.nota)), preguntas: num(e.preguntas),
+          cuaderno: typeof e.cuaderno === 'string' ? e.cuaderno : '',
+          ...(typeof e.titulo === 'string' ? { titulo: e.titulo.slice(0, 80) } : {}),
+        }]
+      })
+      : []
     stats[dia] = {
       pomodoros: num(o.pomodoros), minutos: num(o.minutos), repasos: num(o.repasos), aciertos: num(o.aciertos),
-      ...(Object.keys(temas).length > 0 ? { temas } : {}),
+      ...(temas !== undefined ? { temas } : {}),
+      ...(horas !== undefined ? { horas } : {}),
+      ...(notas !== undefined ? { notas } : {}),
+      ...(examenes.length > 0 ? { examenes } : {}),
     }
   }
   return stats

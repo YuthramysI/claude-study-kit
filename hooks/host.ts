@@ -8,7 +8,7 @@ import type {
   UiOpenResult,
 } from 'claude-code'
 
-import type { InfoCuaderno, Pestana, Pomodoro, Repaso, Stats, Tarjeta } from '../types'
+import type { InfoCuaderno, Pestana, PlanExamen, Pomodoro, Repaso, Sesion, Simulacro, Stats, Tarjeta, VistaStats } from '../types'
 
 export type Celda<T> = {
   leer: () => Promise<T>
@@ -46,6 +46,14 @@ export type Host = {
     tareas: Celda<string[]>
     editandoTarea: Celda<boolean>
     mapa: Celda<string | null>
+    vistaStats: Celda<VistaStats>
+    sesion: Celda<Sesion | null>
+    sesiones: Celda<Sesion[]>
+    logros: Celda<Record<string, string>>
+    contadores: Celda<Record<string, number>>
+    plan: Celda<PlanExamen | null>
+    editandoPlan: Celda<boolean>
+    simulacro: Celda<Simulacro | null>
   }
   status: (text: string | undefined) => void
   toast: (text: string, timeoutMs?: number) => void

@@ -15,6 +15,14 @@ const statsA = atom({ plugin: 'estudio', key: 'stats' } as const, {})
 const tareasA = atom({ plugin: 'estudio', key: 'tareas' } as const, [])
 const editandoTareaA = atom({ plugin: 'estudio', key: 'editandoTarea' } as const, false)
 const mapaA = atom({ plugin: 'estudio', key: 'mapa' } as const, null)
+const vistaStatsA = atom({ plugin: 'estudio', key: 'vistaStats' } as const, 'general')
+const sesionA = atom({ plugin: 'estudio', key: 'sesion' } as const, null)
+const sesionesA = atom({ plugin: 'estudio', key: 'sesiones' } as const, [])
+const logrosA = atom({ plugin: 'estudio', key: 'logros' } as const, {})
+const contadoresA = atom({ plugin: 'estudio', key: 'contadores' } as const, {})
+const planA = atom({ plugin: 'estudio', key: 'plan' } as const, null)
+const editandoPlanA = atom({ plugin: 'estudio', key: 'editandoPlan' } as const, false)
+const simulacroA = atom({ plugin: 'estudio', key: 'simulacro' } as const, null)
 
 /**
  * Enlaza un Host desde `$`. Cada miembro se escribe `$.noun.event(...)` aquí,
@@ -47,6 +55,14 @@ export function hostOf($: EngineInterface, home: string): Host {
       tareas: { leer: () => read($, tareasA), cambiar: fn => update($, tareasA, fn) },
       editandoTarea: { leer: () => read($, editandoTareaA), cambiar: fn => update($, editandoTareaA, fn) },
       mapa: { leer: () => read($, mapaA), cambiar: fn => update($, mapaA, fn) },
+      vistaStats: { leer: () => read($, vistaStatsA), cambiar: fn => update($, vistaStatsA, fn) },
+      sesion: { leer: () => read($, sesionA), cambiar: fn => update($, sesionA, fn) },
+      sesiones: { leer: () => read($, sesionesA), cambiar: fn => update($, sesionesA, fn) },
+      logros: { leer: () => read($, logrosA), cambiar: fn => update($, logrosA, fn) },
+      contadores: { leer: () => read($, contadoresA), cambiar: fn => update($, contadoresA, fn) },
+      plan: { leer: () => read($, planA), cambiar: fn => update($, planA, fn) },
+      editandoPlan: { leer: () => read($, editandoPlanA), cambiar: fn => update($, editandoPlanA, fn) },
+      simulacro: { leer: () => read($, simulacroA), cambiar: fn => update($, simulacroA, fn) },
     },
     status: text => $.ui.status(text),
     toast: (text, timeoutMs) => $.ui.toast(text, timeoutMs !== undefined ? { timeoutMs } : undefined),

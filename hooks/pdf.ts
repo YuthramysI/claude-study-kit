@@ -1,9 +1,10 @@
 // El documento de repaso: un HTML para imprimir que Chrome convierte en PDF.
-import type { InfoCuaderno, Stats, Tarjeta } from '../types'
+import type { InfoCuaderno, PlanExamen, Stats, Tarjeta } from '../types'
+import type { EstadoPlan } from './plan'
 import * as g from './graficos'
 import { leerMapa, mapaSvg } from './mapa'
 import { aHtml, escapar } from './markdown'
-import { pendientes, sumarDias } from './srs'
+import { fechaLarga, pendientes, sumarDias } from './srs'
 import * as stats from './stats'
 
 export type DatosRepaso = {
@@ -16,22 +17,17 @@ export type DatosRepaso = {
   documentos: readonly { archivo: string; markdown: string }[]
   /** límite diario de tarjetas nuevas (la cola de hoy, como en el panel) */
   limiteNuevas?: number
+  plan?: EstadoPlan & PlanExamen
 }
 
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
-const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 const diaSemana = (dia: string) => new Date(`${dia}T12:00:00`).getDay()
-
-export function fechaLarga(dia: string): string {
-  const [y, m, d] = dia.split('-').map(Number)
-  return `${d ?? ''} de ${MESES[(m ?? 1) - 1] ?? ''} de ${y ?? ''}`
-}
 
 /** Título legible de un archivo de salidas/: «guia-celula.md» → «Guía · celula». */
 export function tituloDocumento(archivo: string): string {
   const base = archivo.replace(/\.(md|markdown|txt)$/i, '')
   const [tipo = base, ...resto] = base.split('-')
-  const nombres: Record<string, string> = { guia: 'Guía de estudio', quiz: 'Quiz', audio: 'Guion de audio', faq: 'Preguntas frecuentes', resumen: 'Resumen', mapa: 'Mapa mental' }
+  const nombres: Record<string, string> = { guia: 'Guía de estudio', quiz: 'Quiz', audio: 'Guion de audio', faq: 'Preguntas frecuentes', resumen: 'Resumen', mapa: 'Mapa mental', simulacro: 'Examen simulado' }
   const nombre = nombres[tipo.toLowerCase()]
   if (nombre === undefined) return base
   const detalle = resto.join('-')
@@ -116,6 +112,7 @@ export function documentoRepaso(d: DatosRepaso): string {
   <div class="marca">📚 estudio · repaso</div>
   <h1>${escapar(cuaderno.nombre)}</h1>
   <div class="fecha">${escapar(fechaLarga(hoy))}</div>
+  ${d.plan !== undefined && d.plan.dias >= 0 ? `<div class="plan">🎯 <strong>${escapar(d.plan.titulo ?? 'Examen')}</strong>: ${escapar(fechaLarga(d.plan.examen))} · ${d.plan.dias === 0 ? '¡hoy!' : `faltan ${d.plan.dias} días`} · vistas ${d.plan.vistas} % · previsión de recuerdo ${d.plan.prevision} %</div>` : ''}
   <div class="azulejos">
     ${azulejo('Racha', `🔥 ${racha} ${racha === 1 ? 'día' : 'días'}`, `mejor: ${stats.mejorRacha(s)}`, g.COLOR_FASE.enfoque)}
     ${azulejo('Pomodoros', `${total.pomodoros} 🍅`, `${stats.horas(total.minutos)} de enfoque`, g.COLOR_FASE.enfoque)}
@@ -220,6 +217,7 @@ h1, h2, h3, h4 { break-after: avoid-page; }
 .portada .marca { color: #E8553F; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 9pt; }
 .portada h1 { font-size: 30pt; margin: .2em 0 0; }
 .portada .fecha { color: #8A8F98; margin-bottom: 14px; }
+.portada .plan { margin: -4px 0 12px; padding: 8px 12px; border-radius: 10px; background: #FDF3F1; border: 1.5px solid #E8553F; }
 .azulejos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0 16px; }
 .azulejo { border: 1.5px solid; border-radius: 12px; padding: 8px 12px; }
 .azulejo .t { font-size: 8.5pt; color: #8A8F98; text-transform: uppercase; letter-spacing: .06em; }

@@ -1,14 +1,18 @@
 // Lo que hacen los comandos, los botones del panel y las herramientas.
-import type { DiaStats, Pomodoro, Tarjeta, Veredicto } from '../types'
+import type { DiaStats, PlanExamen, Pomodoro, Sesion, Simulacro, Tarjeta, Veredicto } from '../types'
 import * as anki from './anki'
 import * as cuadernos from './cuadernos'
+import * as informe from './informe'
+import * as lg from './logros'
 import { leerMapa } from './mapa'
 import type { Mapa } from './mapa'
 import type { Config } from './estado'
 import type { Host } from './host'
 import * as pdf from './pdf'
+import * as plan from './plan'
 import * as pomo from './pomodoro'
-import { fecha, fusionar, nuevasEnEspera, pendientes, programar } from './srs'
+import * as ses from './sesiones'
+import { fecha, fechaLarga, fusionar, nuevasEnEspera, pendientes, programar, pronostico, sumarDias } from './srs'
 import type { Nota } from './srs'
 import * as stats from './stats'
 
@@ -121,32 +125,47 @@ export async function vigilar(h: Host, cfg: Config) {
   arrancarLatido(h, cfg, 'respaldo')
 }
 
+/** La línea de estado: el pomodoro y, si hay un simulacro en marcha, su cronómetro. */
+async function lineaDeEstado(h: Host, p: Pomodoro, ahora: number): Promise<string | undefined> {
+  const sim = await h.st.simulacro.leer()
+  const partes = [pomo.lineaEstado(p, ahora), sim !== null ? lineaSimulacro(sim, ahora) : undefined].filter((x): x is string => x !== undefined)
+  return partes.length === 0 ? undefined : partes.join('  │  ')
+}
+
 /** Un latido por segundo: mueve el reloj y cambia de fase al llegar a cero. */
 async function latido(h: Host, cfg: Config) {
   const ahora = await h.now()
   pulso.latidos++
   pulso.ultimo = ahora
+  await latidoSimulacro(h, cfg, ahora).catch(err => {
+    pulso.ultimoError = `simulacro: ${String(err)}`
+  })
   if (pulso.latidos % REVISAR_FUENTES_CADA === 0) {
     void revisarFuentes(h, cfg).catch(err => {
       pulso.ultimoError = `fuentes: ${String(err)}`
     })
   }
   const actual = await h.st.pomodoro.leer()
-  if (actual.estado !== 'corriendo') return
+  if (actual.estado !== 'corriendo') {
+    if ((await h.st.simulacro.leer()) !== null) h.status(await lineaDeEstado(h, actual, ahora))
+    return
+  }
   if (!pomo.haTerminado(actual, ahora)) {
     await h.st.ahora.cambiar(() => ahora)
-    h.status(pomo.lineaEstado(actual, ahora))
+    h.status(await lineaDeEstado(h, actual, ahora))
     return
   }
   let completo = false
   let cambio = false
   let minutos = 0
   let tareaHecha: string | undefined
+  let horas: Record<string, number> = {}
   const p = await h.st.pomodoro.cambiar(p => {
     cambio = pomo.haTerminado(p, ahora)
     if (!cambio) return p
     minutos = p.duracionMs / 60_000
     tareaHecha = p.tarea
+    horas = stats.minutosPorHora(p.terminaEn - p.duracionMs, p.terminaEn)
     const s = pomo.siguiente(p, ahora, cfg.duraciones, cfg.autoIniciar)
     completo = s.completoEnfoque
     return s.pomodoro
@@ -154,8 +173,8 @@ async function latido(h: Host, cfg: Config) {
   if (!cambio) return
   await h.storeSet(CLAVE_POMODORO, p)
   await h.st.ahora.cambiar(() => ahora)
-  h.status(pomo.lineaEstado(p, ahora))
-  if (completo) await sumar(h, ahora, { pomodoros: 1, minutos, temas: { [tareaHecha ?? TAREA_GENERAL]: minutos } })
+  h.status(await lineaDeEstado(h, p, ahora))
+  if (completo) await sumar(h, cfg, ahora, { pomodoros: 1, minutos, temas: { [tareaHecha ?? TAREA_GENERAL]: minutos }, horas })
   const aviso = completo
     ? `¡Pomodoro terminado${tareaHecha !== undefined ? ` (${tareaHecha})` : ''}! 🍅 Toca ${pomo.NOMBRE_FASE[p.fase]} de ${Math.round(p.duracionMs / 60_000)} min.`
     : p.estado === 'corriendo'
@@ -256,9 +275,204 @@ export async function cargarStats(h: Host, cfg: Config) {
   await h.st.stats.cambiar(() => s)
 }
 
-async function sumar(h: Host, ahora: number, cambio: Partial<DiaStats>) {
-  const s = await h.st.stats.cambiar(s => stats.registrar(s, fecha(ahora), cambio))
+/** Suma actividad al día y a la sesión en curso, y programa el diario. */
+async function sumar(h: Host, cfg: Config, ahora: number, cambio: Partial<DiaStats>, dia = fecha(ahora)) {
+  const s = await h.st.stats.cambiar(s => stats.registrar(s, dia, cambio))
   await h.storeSet(CLAVE_STATS, s)
+  await apuntarSesion(h, cfg, ahora, {
+    ...(cambio.pomodoros !== undefined ? { pomodoros: cambio.pomodoros } : {}),
+    ...(cambio.minutos !== undefined ? { minutos: cambio.minutos } : {}),
+    ...(cambio.repasos !== undefined ? { repasos: cambio.repasos } : {}),
+    ...(cambio.aciertos !== undefined ? { aciertos: cambio.aciertos } : {}),
+    ...(cambio.temas !== undefined ? { temas: cambio.temas } : {}),
+  })
+  await comprobarLogros(h).catch(() => undefined)
+}
+
+// ── Logros y niveles ────────────────────────────────────────────────────────
+
+const CLAVE_LOGROS = 'logros'
+const CLAVE_CONTADORES = 'contadores'
+
+export async function cargarLogros(h: Host) {
+  const guardados = await h.storeGet(CLAVE_LOGROS)
+  const contadores = await h.storeGet(CLAVE_CONTADORES)
+  const limpiar = <T>(v: unknown, ok: (x: unknown) => x is T): Record<string, T> =>
+    typeof v === 'object' && v !== null ? Object.fromEntries(Object.entries(v).filter((e): e is [string, T] => ok(e[1]))) : {}
+  await h.st.logros.cambiar(() => limpiar(guardados, (x): x is string => typeof x === 'string'))
+  await h.st.contadores.cambiar(() => limpiar(contadores, (x): x is number => typeof x === 'number'))
+  // la primera vez, los logros que ya cumplías se apuntan sin avisar
+  if (guardados === undefined) await comprobarLogros(h, false)
+}
+
+/** Sube un contador de los que miran los logros (pdfs, cuadernos) o lo fija como mínimo (mapas). */
+export async function contar(h: Host, clave: 'pdfs' | 'cuadernos' | 'mapas', cuanto: { sumar: number } | { minimo: number }) {
+  const c = await h.st.contadores.cambiar(c => ({
+    ...c, [clave]: 'sumar' in cuanto ? (c[clave] ?? 0) + cuanto.sumar : Math.max(c[clave] ?? 0, cuanto.minimo),
+  }))
+  await h.storeSet(CLAVE_CONTADORES, c)
+  await comprobarLogros(h)
+}
+
+export async function datosLogros(h: Host): Promise<lg.DatosLogros> {
+  const c = await h.st.contadores.leer()
+  return {
+    stats: await h.st.stats.leer(),
+    maduras: stats.etapas(await h.st.tarjetas.leer()).maduras,
+    mapas: c.mapas ?? 0,
+    pdfs: c.pdfs ?? 0,
+    cuadernos: c.cuadernos ?? 0,
+  }
+}
+
+/** Apunta los logros recién conseguidos y lo celebra (también al subir de nivel). */
+export async function comprobarLogros(h: Host, avisar = true) {
+  const datos = await datosLogros(h)
+  const resumen = lg.resumir(datos)
+  const antes = await h.st.logros.leer()
+  const nuevos = lg.nuevos(resumen, antes)
+  if (nuevos.length === 0) return
+  const dia = fecha(await h.now())
+  const nivelAntes = lg.nivel(lg.experiencia(datos.stats, Object.keys(antes).length)).nivel
+  const despues = await h.st.logros.cambiar(l => ({ ...l, ...Object.fromEntries(nuevos.map(x => [x.id, dia])) }))
+  await h.storeSet(CLAVE_LOGROS, despues)
+  if (!avisar) return
+  const nivelAhora = lg.nivel(lg.experiencia(datos.stats, Object.keys(despues).length))
+  const texto = nuevos.length === 1
+    ? `🏆 ¡Logro desbloqueado! ${nuevos[0]?.icono} ${nuevos[0]?.nombre}: ${nuevos[0]?.descripcion}`
+    : `🏆 ¡${nuevos.length} logros desbloqueados! ${nuevos.map(x => `${x.icono} ${x.nombre}`).join(' · ')}`
+  const nivel = nivelAhora.nivel > nivelAntes ? ` ⬆️ Subes al nivel ${nivelAhora.nivel}: ${nivelAhora.titulo}.` : ''
+  h.toast(`${texto}${nivel}`, 10_000)
+  h.linea(`${texto}${nivel}`)
+}
+
+// ── Sesiones y diario ───────────────────────────────────────────────────────
+
+const CLAVE_SESION = 'sesionActual'
+const CLAVE_SESIONES = 'sesiones'
+const claveCoach = (dia: string) => `coach:${dia}`
+
+export async function cargarSesiones(h: Host) {
+  const actual = ses.sanear(await h.storeGet(CLAVE_SESION))
+  const guardadas = await h.storeGet(CLAVE_SESIONES)
+  const lista = Array.isArray(guardadas) ? guardadas.map(ses.sanear).filter((s): s is Sesion => s !== null) : []
+  await h.st.sesion.cambiar(() => actual)
+  await h.st.sesiones.cambiar(() => lista.slice(0, ses.SESIONES_GUARDADAS))
+}
+
+async function apuntarSesion(h: Host, cfg: Config, ahora: number, cambio: ses.Cambio) {
+  const cuaderno = (await h.st.cuaderno.leer())?.nombre
+  let cerrada: Sesion | undefined
+  const sesion = await h.st.sesion.cambiar(actual => {
+    const r = ses.apuntar(actual, ahora, { ...cambio, ...(cuaderno !== undefined ? { cuaderno } : {}) })
+    cerrada = r.cerrada
+    return r.sesion
+  })
+  await h.storeSet(CLAVE_SESION, sesion)
+  if (cerrada !== undefined && !ses.vacia(cerrada)) {
+    const terminada = cerrada
+    const lista = await h.st.sesiones.cambiar(ls => [terminada, ...ls.filter(s => s.id !== terminada.id)].slice(0, ses.SESIONES_GUARDADAS))
+    await h.storeSet(CLAVE_SESIONES, lista)
+    programarDiario(h, cfg, fecha(terminada.inicio))
+  }
+  programarDiario(h, cfg, fecha(ahora))
+}
+
+const diariosPendientes = new Set<string>()
+
+/** Reescribe el diario del día unos segundos después, una vez aunque haya muchos cambios. */
+function programarDiario(h: Host, cfg: Config, dia: string) {
+  if (diariosPendientes.has(dia)) return
+  diariosPendientes.add(dia)
+  const base = hostSesion ?? h
+  base.after(5000, () => {
+    diariosPendientes.delete(dia)
+    void escribirDiario(base, cfg, dia).catch(err => {
+      pulso.ultimoError = `diario: ${String(err)}`
+    })
+  })
+}
+
+/** Las sesiones de un día, la en curso incluida, por orden. */
+async function sesionesDe(h: Host, dia: string): Promise<Sesion[]> {
+  const actual = await h.st.sesion.leer()
+  const lista = await h.st.sesiones.leer()
+  return [...(actual !== null ? [actual] : []), ...lista.filter(s => s.id !== actual?.id)]
+    .filter(s => fecha(s.inicio) === dia && !ses.vacia(s))
+    .sort((a, b) => a.inicio - b.inicio)
+}
+
+export async function escribirDiario(h: Host, cfg: Config, dia: string): Promise<string> {
+  const totales = (await h.st.stats.leer())[dia] ?? stats.VACIO
+  const consejo = await h.storeGet(claveCoach(dia))
+  const ruta = `${cuadernos.raiz(h, cfg.carpeta)}/diario/${dia}.md`
+  await h.fs.write(ruta, ses.diario(dia, totales, await sesionesDe(h, dia), typeof consejo === 'string' ? consejo : undefined))
+  return ruta
+}
+
+/** Lo que el coach (y la herramienta resumen_estudio) sabe de cómo vas. */
+export async function datosEstudio(h: Host, cfg: Config) {
+  const ahora = await h.now()
+  const hoy = fecha(ahora)
+  const s = await h.st.stats.leer()
+  const semana = stats.ultimosDias(s, hoy, 7)
+  const info = await h.st.cuaderno.leer()
+  const tarjetas = await h.st.tarjetas.leer()
+  const actual = await h.st.sesion.leer()
+  const aciertos = stats.aciertosPorDia(s, hoy, 14).filter((x): x is number => x !== null)
+  return {
+    hoy: { dia: hoy, ...(s[hoy] ?? stats.VACIO) },
+    ultimos7dias: stats.totales(s, semana[0]?.dia),
+    racha: stats.racha(s, hoy),
+    mejorRacha: stats.mejorRacha(s),
+    temas7dias: stats.temas(s, semana[0]?.dia).slice(0, 6),
+    mejoresHoras: stats.mejoresHoras(s, hoy).map(x => `${x.hora}-${x.hora + 1} h`),
+    aciertosUltimos14dias: aciertos.length === 0 ? null : Math.round(aciertos.reduce((a, b) => a + b, 0) / aciertos.length),
+    sesionActual: ses.abierta(actual, ahora) ? ses.linea(actual) : null,
+    ultimasSesiones: (await h.st.sesiones.leer()).slice(0, 5).map(x => ses.linea(x, ahora)),
+    ...(info !== null
+      ? {
+        cuaderno: info.nombre,
+        tarjetas: { total: tarjetas.length, paraHoy: pendientes(tarjetas, hoy, await limiteNuevas(h, cfg, tarjetas)).length, ...stats.etapas(tarjetas) },
+        repasosPrevistos7dias: pronostico(tarjetas, hoy, 7).reduce((a, b) => a + b, 0),
+      }
+      : {}),
+    examenes: stats.examenes(s).slice(-5).map(e => ({ dia: e.dia, nota: e.nota, cuaderno: e.cuaderno })),
+    planExamen: await estadoPlan(h),
+  }
+}
+
+/**
+ * /estudio resumen: la sesión en curso (o la última), el día, y un consejo
+ * breve del coach (el modelo pequeño) que queda en el diario.
+ */
+export async function resumenSesion(h: Host, cfg: Config, conCoach = true): Promise<string> {
+  const ahora = await h.now()
+  const hoy = fecha(ahora)
+  const actual = await h.st.sesion.leer()
+  const ultima = actual !== null && !ses.vacia(actual) ? actual : (await h.st.sesiones.leer())[0]
+  const d = (await h.st.stats.leer())[hoy] ?? stats.VACIO
+  const partes = [
+    ultima === undefined ? '📝 Aún no hay sesiones de estudio registradas.' : `${ses.resumen(ultima)}${ses.abierta(actual, ahora) ? '  (en curso)' : ''}`,
+    `📅 Hoy: ${d.pomodoros} 🍅 · ${stats.horas(d.minutos)} · ${d.repasos} tarjetas (${stats.porcentaje(d.aciertos, d.repasos)})`,
+  ]
+  if (conCoach) {
+    const consejo = await h.completar({
+      maxTokens: 260,
+      system:
+        'Eres un coach de estudio cercano y concreto. Con los datos (JSON) del estudiante, escribe en español 2 o 3 viñetas ' +
+        'que empiecen por «- »: una sobre lo que hizo bien, y una o dos acciones concretas para mañana (qué repasar, cuánto, a qué hora). ' +
+        'Máximo 70 palabras en total. Usa números de los datos. Nada de saludos ni despedidas.',
+      prompt: JSON.stringify(await datosEstudio(h, cfg)),
+    })
+    if (consejo !== undefined && consejo.trim() !== '') {
+      await h.storeSet(claveCoach(hoy), consejo.trim())
+      partes.push(`🤖 Coach:\n${consejo.trim()}`)
+    }
+  }
+  const ruta = await escribirDiario(h, cfg, hoy)
+  partes.push(`📓 Diario: ${ruta}`)
+  return partes.join('\n')
 }
 
 export async function textoStats(h: Host): Promise<string> {
@@ -282,10 +496,150 @@ export async function textoStats(h: Host): Promise<string> {
   ].join('\n')
 }
 
+// ── Examen simulado ─────────────────────────────────────────────────────────
+
+const CLAVE_SIMULACRO = 'simulacro'
+
+export async function cargarSimulacro(h: Host) {
+  const v = await h.storeGet(CLAVE_SIMULACRO)
+  const ok = typeof v === 'object' && v !== null && typeof (v as { terminaEn?: unknown }).terminaEn === 'number'
+  await h.st.simulacro.cambiar(() => (ok ? (v as Simulacro) : null))
+}
+
+/** Herramienta examen_cronometro: iniciar, parar o consultar el cronómetro del simulacro. */
+export async function cronometroSimulacro(h: Host, accion: string, minutos?: number, preguntas?: number): Promise<string> {
+  const ahora = await h.now()
+  const actual = await h.st.simulacro.leer()
+  if (accion === 'iniciar') {
+    const min = Math.min(240, Math.max(1, Math.round(minutos ?? 20)))
+    const s: Simulacro = { inicio: ahora, terminaEn: ahora + min * 60_000, minutos: min, preguntas: Math.max(1, Math.round(preguntas ?? 10)), avisado: false }
+    await h.st.simulacro.cambiar(() => s)
+    await h.storeSet(CLAVE_SIMULACRO, s)
+    h.status(await lineaDeEstado(h, await h.st.pomodoro.leer(), ahora))
+    return `Cronómetro iniciado: ${min} min para ${s.preguntas} preguntas. Se ve en la barra de estado.`
+  }
+  if (actual === null) return 'No hay ningún simulacro en curso.'
+  const usados = Math.round((ahora - actual.inicio) / 60_000)
+  if (accion === 'parar') {
+    await h.st.simulacro.cambiar(() => null)
+    await h.storeSet(CLAVE_SIMULACRO, null)
+    h.status(pomo.lineaEstado(await h.st.pomodoro.leer(), ahora))
+    return `Cronómetro parado: ${usados} de ${actual.minutos} min${ahora > actual.terminaEn ? ' (se pasó del tiempo)' : ''}.`
+  }
+  return lineaSimulacro(actual, ahora) ?? ''
+}
+
+export function lineaSimulacro(s: Simulacro, ahora: number): string | undefined {
+  const resta = s.terminaEn - ahora
+  return resta > 0 ? `📝 Simulacro ${pomo.reloj(resta)}` : '📝 Simulacro: ¡tiempo!'
+}
+
+/** Desde el latido: mueve el cronómetro y avisa una vez al acabar el tiempo. */
+async function latidoSimulacro(h: Host, cfg: Config, ahora: number) {
+  const s = await h.st.simulacro.leer()
+  if (s === null || ahora < s.terminaEn || s.avisado) return
+  const marcado = await h.st.simulacro.cambiar(x => (x === null ? x : { ...x, avisado: true }))
+  await h.storeSet(CLAVE_SIMULACRO, marcado)
+  const aviso = '⏰ ¡Tiempo del simulacro! Termina la pregunta en curso y pide la corrección.'
+  h.toast(aviso, 10_000)
+  h.linea(aviso)
+  if (cfg.sonido) campana(h, cfg)
+}
+
+/** Herramienta registrar_examen: guarda la nota del simulacro y la compara con la anterior. */
+export async function registrarExamen(h: Host, cfg: Config, nota: number, preguntas: number, titulo?: string): Promise<string> {
+  const info = await h.st.cuaderno.leer()
+  const ahora = await h.now()
+  const valor = Math.round(Math.min(10, Math.max(0, nota)) * 10) / 10
+  const anteriores = stats.examenes(await h.st.stats.leer()).filter(e => e.cuaderno === (info?.nombre ?? ''))
+  const previa = anteriores[anteriores.length - 1]
+  await sumar(h, cfg, ahora, { examenes: [{ nota: valor, preguntas: Math.max(1, Math.round(preguntas)), cuaderno: info?.nombre ?? '', ...(titulo !== undefined && titulo.trim() !== '' ? { titulo: titulo.trim().slice(0, 80) } : {}) }] })
+  await h.st.simulacro.cambiar(() => null)
+  await h.storeSet(CLAVE_SIMULACRO, null)
+  const comparacion = previa === undefined ? 'Es tu primer simulacro de este cuaderno.' : `${valor >= previa.nota ? '⬆️' : '⬇️'} ${valor >= previa.nota ? '+' : ''}${(valor - previa.nota).toFixed(1)} respecto al anterior (${previa.nota.toFixed(1)}).`
+  return `📝 Nota guardada: ${valor.toFixed(1)}/10. ${comparacion} La evolución se ve en 📊 Stats.`
+}
+
+// ── Plan de examen ──────────────────────────────────────────────────────────
+
+/** El límite de nuevas de hoy: el de /config, o más si el plan de examen lo necesita. */
+export async function limiteNuevas(h: Host, cfg: Config, tarjetas?: readonly Tarjeta[]): Promise<number> {
+  return plan.limiteHoy(cfg.nuevasPorDia, await h.st.plan.leer(), tarjetas ?? (await h.st.tarjetas.leer()), await h.st.stats.leer(), fecha(await h.now()))
+}
+
+export async function estadoPlan(h: Host): Promise<(plan.EstadoPlan & PlanExamen) | null> {
+  const p = await h.st.plan.leer()
+  if (p === null) return null
+  return { ...p, ...plan.estado(p, await h.st.tarjetas.leer(), await h.st.stats.leer(), fecha(await h.now())) }
+}
+
+export function textoPlan(e: plan.EstadoPlan & PlanExamen): string {
+  const cuando = e.dias === 0 ? '¡hoy!' : e.dias === 1 ? 'mañana' : e.dias < 0 ? `hace ${-e.dias} días` : `en ${e.dias} días`
+  return [
+    `🎯 ${e.titulo ?? 'Examen'}: ${fechaLarga(e.examen)} (${cuando})`,
+    `  📚 vistas ${e.vistas} % · ${e.nuevas} nuevas por empezar${e.nuevasPorDia > 0 ? ` (${e.nuevasPorDia}/día)` : ''}`,
+    `  🧠 previsión de recuerdo el día del examen: ${e.prevision} %`,
+    `  🍅 hoy ${e.pomodorosHoy}/${e.metaPomodoros} pomodoros`,
+    `  ${e.ritmo === 'atrasado' ? '⚠️' : e.ritmo === 'listo' ? '✅' : '👉'} ${e.mensaje}`,
+  ].join('\n')
+}
+
+/**
+ * «15/11 Bioquímica», «en 20 días», «2026-12-01 Final de física», «meta 6»,
+ * «borrar»: lo que escribes en /examen o en el panel.
+ */
+export async function fijarPlanTexto(h: Host, cfg: Config, texto: string): Promise<string> {
+  const palabras = texto.trim().split(/\s+/).filter(Boolean)
+  const primera = (palabras[0] ?? '').toLowerCase()
+  await h.st.editandoPlan.cambiar(() => false)
+  if (palabras.length === 0) {
+    const e = await estadoPlan(h)
+    return e === null ? 'Sin plan de examen. Fíjalo con /examen <fecha> [título]: «/examen 15/11 Bioquímica», «/examen en 20 días».' : textoPlan(e)
+  }
+  if (['borrar', 'quitar', 'ninguno'].includes(primera)) return fijarPlan(h, cfg, null)
+  if (primera === 'meta') {
+    const n = Number(palabras[1])
+    if (!(n >= 1 && n <= 20)) return 'La meta va de 1 a 20 pomodoros al día: /examen meta 4'
+    return fijarPlan(h, cfg, { metaPomodoros: Math.round(n) })
+  }
+  const hoy = fecha(await h.now())
+  // la fecha puede ocupar varias palabras («15 de noviembre»): se busca la más larga que encaje
+  for (let n = Math.min(4, palabras.length); n >= 1; n--) {
+    const examen = plan.interpretarFecha(palabras.slice(0, n).join(' '), hoy)
+    if (examen === undefined) continue
+    if (examen < hoy) return `${fechaLarga(examen)} ya pasó.`
+    const titulo = palabras.slice(n).join(' ')
+    return fijarPlan(h, cfg, { examen, ...(titulo !== '' ? { titulo } : {}) })
+  }
+  return `No entiendo «${palabras.slice(0, 3).join(' ')}» como fecha. Prueba: 15/11, 2026-11-15, «15 de noviembre» o «en 20 días».`
+}
+
+export async function fijarPlan(h: Host, cfg: Config, cambio: { examen?: string; titulo?: string; metaPomodoros?: number } | null): Promise<string> {
+  const info = await cuadernoActivo(h)
+  if (cambio === null) {
+    await cuadernos.guardarPlan(h, info.ruta, null)
+    await h.st.plan.cambiar(() => null)
+    return `Plan de examen de «${info.nombre}» quitado.`
+  }
+  const actual = await h.st.plan.leer()
+  const examen = cambio.examen ?? actual?.examen
+  if (examen === undefined) return 'Indica la fecha: /examen 15/11 [título], /examen en 20 días…'
+  const nuevo = plan.sanear({ ...(actual ?? {}), ...cambio, examen })
+  if (nuevo === null) return 'No entiendo esa fecha.'
+  await cuadernos.guardarPlan(h, info.ruta, nuevo)
+  await h.st.plan.cambiar(() => nuevo)
+  await refrescarCuaderno(h, cfg)
+  const e = await estadoPlan(h)
+  return e === null ? 'Plan guardado.' : textoPlan(e)
+}
+
 // ── Cuadernos ───────────────────────────────────────────────────────────────
 
 export async function abrirCuaderno(h: Host, cfg: Config, nombre: string) {
-  await cuadernos.crear(h, cuadernos.raiz(h, cfg.carpeta), nombre)
+  const base = cuadernos.raiz(h, cfg.carpeta)
+  const existia = await h.fs.exists(`${base}/${nombre}`)
+  await cuadernos.crear(h, base, nombre)
+  if (!existia) await contar(h, 'cuadernos', { sumar: 1 }).catch(() => undefined)
   await cuadernos.fijarActivo(h, nombre)
   return refrescarCuaderno(h, cfg)
 }
@@ -297,13 +651,16 @@ export async function refrescarCuaderno(h: Host, cfg: Config) {
   if (nombre === undefined || !(await h.fs.exists(`${base}/${nombre}`))) {
     await h.st.cuaderno.cambiar(() => null)
     await h.st.tarjetas.cambiar(() => [])
+    await h.st.plan.cambiar(() => null)
     return null
   }
   const info = await cuadernos.info(h, base, nombre)
   const lectura = await cuadernos.leerTarjetas(h, info.ruta)
   if (lectura.aviso !== undefined) h.toast(lectura.aviso, 15_000)
+  const planCuaderno = await cuadernos.leerPlan(h, info.ruta)
   await h.st.cuaderno.cambiar(() => info)
   await h.st.tarjetas.cambiar(() => lectura.tarjetas)
+  await h.st.plan.cambiar(() => planCuaderno)
   return info
 }
 
@@ -363,7 +720,7 @@ export async function resumirNuevas(h: Host, cfg: Config) {
 export async function recordatorio(h: Host, cfg: Config) {
   const info = await h.st.cuaderno.leer()
   if (info === null) return
-  const n = pendientes(await h.st.tarjetas.leer(), fecha(await h.now()), cfg.nuevasPorDia).length
+  const n = pendientes(await h.st.tarjetas.leer(), fecha(await h.now()), await limiteNuevas(h, cfg)).length
   if (n > 0) h.toast(`🃏 Tienes ${n} ${n === 1 ? 'tarjeta pendiente' : 'tarjetas pendientes'} en «${info.nombre}» · /repasar`, 10_000)
 }
 
@@ -375,13 +732,14 @@ async function cuadernoActivo(h: Host) {
   return info
 }
 
-export async function agregarTarjetas(h: Host, nuevas: readonly anki.TarjetaSimple[]): Promise<string> {
+export async function agregarTarjetas(h: Host, cfg: Config, nuevas: readonly anki.TarjetaSimple[]): Promise<string> {
   const info = await cuadernoActivo(h)
   const ahora = await h.now()
   const { tarjetas: existentes } = await cuadernos.leerTarjetas(h, info.ruta)
   const r = fusionar(existentes, nuevas, ahora)
   await cuadernos.guardarTarjetas(h, info.ruta, r.tarjetas, ahora)
   await h.st.tarjetas.cambiar(() => r.tarjetas)
+  if (r.agregadas > 0) await apuntarSesion(h, cfg, ahora, { creadas: r.agregadas })
   return `Guardadas ${r.agregadas} tarjetas en «${info.nombre}» (${r.tarjetas.length} en total` +
     `${r.repetidas > 0 ? `, ${r.repetidas} repetidas o vacías omitidas` : ''}). Se repasan con /repasar.`
 }
@@ -401,14 +759,14 @@ export async function calificar(h: Host, cfg: Config, id: string, nota: Nota) {
   if (previa === undefined) return
   const acierto = nota !== 'otra'
   const dia = fecha(ahora)
-  await h.st.repaso.cambiar(r => ({ mostrarReverso: false, ...(r.escribir ? { escribir: true } : {}), ...(previa ? { deshacer: { previa, dia, acierto } } : {}) }))
-  await sumar(h, ahora, { repasos: 1, aciertos: acierto ? 1 : 0 })
+  await h.st.repaso.cambiar(r => ({ mostrarReverso: false, ...(r.escribir ? { escribir: true } : {}), ...(previa ? { deshacer: { previa, dia, acierto, nota } } : {}) }))
+  await sumar(h, cfg, ahora, { repasos: 1, aciertos: acierto ? 1 : 0, notas: { [nota]: 1 } })
   await cuadernos.guardarTarjetas(h, info.ruta, tarjetas, ahora)
-  if (pendientes(tarjetas, dia, cfg.nuevasPorDia).length === 0) h.toast('¡Repaso de hoy completado! 🎉')
+  if (pendientes(tarjetas, dia, await limiteNuevas(h, cfg, tarjetas)).length === 0) h.toast('¡Repaso de hoy completado! 🎉')
 }
 
 /** Deshace la última calificación: la tarjeta vuelve a como estaba y el repaso se descuenta. */
-export async function deshacer(h: Host): Promise<string> {
+export async function deshacer(h: Host, cfg: Config): Promise<string> {
   const info = await cuadernoActivo(h)
   const repaso = await h.st.repaso.leer()
   const ultimo = repaso.deshacer
@@ -416,8 +774,9 @@ export async function deshacer(h: Host): Promise<string> {
   const ahora = await h.now()
   const tarjetas = await h.st.tarjetas.cambiar(ts => ts.map(t => (t.id === ultimo.previa.id ? ultimo.previa : t)))
   await h.st.repaso.cambiar(r => ({ mostrarReverso: false, ...(r.escribir ? { escribir: true } : {}) }))
-  const s = await h.st.stats.cambiar(s => stats.registrar(s, ultimo.dia, { repasos: -1, aciertos: ultimo.acierto ? -1 : 0 }))
-  await h.storeSet(CLAVE_STATS, s)
+  await sumar(h, cfg, ahora, {
+    repasos: -1, aciertos: ultimo.acierto ? -1 : 0, ...(ultimo.nota !== undefined ? { notas: { [ultimo.nota]: -1 } } : {}),
+  }, ultimo.dia)
   await cuadernos.guardarTarjetas(h, info.ruta, tarjetas, ahora)
   return `Deshecho: «${ultimo.previa.frente}» vuelve a la cola.`
 }
@@ -520,13 +879,13 @@ export async function exportarAnki(h: Host): Promise<string> {
   return `Exportadas ${tarjetas.length} tarjetas a:\n  ${destino}\nEn Anki: Archivo → Importar → elige ese archivo (el mazo se llama «${info.nombre}»).`
 }
 
-export async function importarAnki(h: Host, ruta: string): Promise<string> {
+export async function importarAnki(h: Host, cfg: Config, ruta: string): Promise<string> {
   const info = await cuadernoActivo(h)
   const archivo = ruta.startsWith('~/') ? h.home + ruta.slice(1) : ruta.startsWith('/') ? ruta : `${info.ruta}/${ruta}`
   if (!(await h.fs.exists(archivo))) return `No encuentro ${archivo}.`
   const r = anki.importar(await h.fs.read(archivo))
   if (r.tarjetas.length === 0) return `No encontré tarjetas en ${archivo} (se esperan dos columnas: frente y reverso, separadas por tabulador, «;» o «,»).`
-  const resumen = await agregarTarjetas(h, r.tarjetas)
+  const resumen = await agregarTarjetas(h, cfg, r.tarjetas)
   return r.ignoradas > 0 ? `${resumen}\n${r.ignoradas} líneas sin frente o reverso se ignoraron.` : resumen
 }
 
@@ -535,8 +894,9 @@ export async function textoTarjetas(h: Host, cfg: Config): Promise<string> {
   const tarjetas = await h.st.tarjetas.leer()
   const e = stats.etapas(tarjetas)
   const hoy = fecha(await h.now())
-  const n = pendientes(tarjetas, hoy, cfg.nuevasPorDia).length
-  const espera = nuevasEnEspera(tarjetas, hoy, cfg.nuevasPorDia)
+  const limite = await limiteNuevas(h, cfg, tarjetas)
+  const n = pendientes(tarjetas, hoy, limite).length
+  const espera = nuevasEnEspera(tarjetas, hoy, limite)
   return `«${info.nombre}»: ${tarjetas.length} tarjetas · ${n} para hoy${espera > 0 ? ` (+${espera} nuevas esperan turno)` : ''}\n` +
     `  nuevas ${e.nuevas} · aprendiendo ${e.aprendiendo} · maduras ${e.maduras}\n` +
     'Más: /anki exportar · /anki importar <archivo>'
@@ -557,6 +917,9 @@ export async function leerMapas(h: Host): Promise<{ archivo: string; mapa: Mapa 
   for (const e of entradas) {
     const mapa = leerMapa(await h.fs.read(`${carpeta}/${e.name}`))
     if (mapa !== undefined) mapas.push({ archivo: e.name, mapa })
+  }
+  if (mapas.length > 0 && ((await h.st.contadores.leer()).mapas ?? 0) < mapas.length) {
+    await contar(h, 'mapas', { minimo: mapas.length }).catch(() => undefined)
   }
   return mapas
 }
@@ -602,7 +965,11 @@ export async function generarPdf(h: Host, cfg: Config, abrir = true): Promise<st
   }
 
   const tarjetas = await h.st.tarjetas.leer()
-  const html = pdf.documentoRepaso({ cuaderno: info, hoy, tarjetas, stats: await h.st.stats.leer(), documentos, limiteNuevas: cfg.nuevasPorDia })
+  const estado = await estadoPlan(h)
+  const html = pdf.documentoRepaso({
+    cuaderno: info, hoy, tarjetas, stats: await h.st.stats.leer(), documentos, limiteNuevas: await limiteNuevas(h, cfg, tarjetas),
+    ...(estado !== null ? { plan: estado } : {}),
+  })
   const nombre = `repaso-${info.nombre.replace(/\s+/g, '-')}-${hoy}`
   const rutaHtml = `${carpeta}/${nombre}.html`
   const rutaPdf = `${carpeta}/${nombre}.pdf`
@@ -612,29 +979,70 @@ export async function generarPdf(h: Host, cfg: Config, abrir = true): Promise<st
     `${tarjetas.length > 0 ? ` · ${Math.ceil(tarjetas.length / 10) * 2} hojas para recortar` : ''}` +
     `${omitidos.length > 0 ? ` (omitidos por grandes: ${omitidos.join(', ')})` : ''}`
 
-  const perfil = '/tmp/estudio-pdf-navegador'
-  const url = `file://${encodeURI(rutaHtml)}`
+  const r = await conNavegador(h, rutaHtml, rutaPdf, ['--no-pdf-header-footer', '--print-to-pdf-no-header', `--print-to-pdf=${rutaPdf}`])
+  if (r.ok) {
+    await contar(h, 'pdfs', { sumar: 1 }).catch(() => undefined)
+    if (abrir) abrirArchivo(h, rutaPdf)
+    return `📄 PDF de repaso listo: ${rutaPdf}\n${contenido}`
+  }
+  if (abrir) abrirArchivo(h, rutaHtml)
+  return `${r.motivo} Dejé el documento en:\n  ${rutaHtml}\n` +
+    `Ábrelo en el navegador y usa Imprimir → Guardar como PDF (con «Gráficos de fondo» activado).\n${contenido}`
+}
+
+/**
+ * Convierte un HTML con el primer navegador que funcione (Chrome, Chromium,
+ * Edge o Brave sin ventana): a PDF o a PNG, según los `extra` que reciba.
+ */
+async function conNavegador(h: Host, html: string, salida: string, extra: readonly string[]): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  const url = `file://${encodeURI(html)}`
   const fallos: string[] = []
   for (const nav of NAVEGADORES) {
     const r = await h
       .run([nav, '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
-        `--user-data-dir=${perfil}`, '--no-pdf-header-footer', '--print-to-pdf-no-header',
-        '--virtual-time-budget=3000', `--print-to-pdf=${rutaPdf}`, url], { timeoutMs: 120_000 })
+        '--user-data-dir=/tmp/estudio-pdf-navegador', '--hide-scrollbars', '--virtual-time-budget=3000', ...extra, url], { timeoutMs: 120_000 })
       .catch(() => undefined)
     if (r === undefined) continue // no está instalado
-    if (r.exitCode === 0 && (await h.fs.exists(rutaPdf))) {
-      if (abrir) abrirArchivo(h, rutaPdf)
-      return `📄 PDF de repaso listo: ${rutaPdf}\n${contenido}`
-    }
+    if (r.exitCode === 0 && (await h.fs.exists(salida))) return { ok: true }
     const error = r.stderr.split('\n').map(l => l.trim()).filter(l => l !== '' && !l.startsWith('Fontconfig')).pop()
     fallos.push(`${nav.split('/').pop() ?? nav} (código ${r.exitCode}${error !== undefined ? `: ${error.slice(0, 160)}` : ''})`)
   }
-  if (abrir) abrirArchivo(h, rutaHtml)
-  const motivo = fallos.length > 0
-    ? `El navegador no pudo crear el PDF: ${fallos.join('; ')}.`
-    : 'No encontré Chrome, Chromium, Edge ni Brave para crear el PDF.'
-  return `${motivo} Dejé el documento en:\n  ${rutaHtml}\n` +
-    `Ábrelo en el navegador y usa Imprimir → Guardar como PDF (con «Gráficos de fondo» activado).\n${contenido}`
+  return {
+    ok: false,
+    motivo: fallos.length > 0 ? `El navegador no pudo crear el archivo: ${fallos.join('; ')}.` : 'No encontré Chrome, Chromium, Edge ni Brave.',
+  }
+}
+
+// ── Informe semanal ─────────────────────────────────────────────────────────
+
+/** /estudio informe: la tarjeta PNG de la semana (la actual, o la pasada) en ~/estudio/informes/. */
+export async function generarInforme(h: Host, cfg: Config, pasada = false, abrir = true): Promise<string> {
+  const hoy = fecha(await h.now())
+  const lunes = informe.lunesDe(pasada ? sumarDias(hoy, -7) : hoy)
+  const carpeta = `${cuadernos.raiz(h, cfg.carpeta)}/informes`
+  const base = `${carpeta}/semana-${lunes}`
+  await h.fs.write(`${base}.html`, informe.htmlInforme({ lunes, hoy, stats: await h.st.stats.leer(), logros: await h.st.logros.leer() }))
+  const r = await conNavegador(h, `${base}.html`, `${base}.png`, [`--window-size=${informe.ANCHO},${informe.ALTO}`, `--screenshot=${base}.png`])
+  await h.storeSet(CLAVE_INFORME, lunes)
+  if (!r.ok) {
+    if (abrir) abrirArchivo(h, `${base}.html`)
+    return `${r.motivo} Dejé el informe en ${base}.html: ábrelo y haz una captura.`
+  }
+  if (abrir) abrirArchivo(h, `${base}.png`)
+  return `📸 Informe semanal listo: ${base}.png (1080×1350, listo para compartir)`
+}
+
+const CLAVE_INFORME = 'ultimoInforme'
+
+/** Los lunes, si aún no generaste el informe de la semana pasada, lo recuerda. */
+export async function recordarInforme(h: Host) {
+  const hoy = fecha(await h.now())
+  if (informe.lunesDe(hoy) !== hoy) return
+  const pasada = informe.lunesDe(sumarDias(hoy, -7))
+  const s = await h.st.stats.leer()
+  const huboActividad = Array.from({ length: 7 }, (_, i) => s[sumarDias(pasada, i)]).some(d => d !== undefined && (d.minutos > 0 || d.repasos > 0))
+  if (!huboActividad || (await h.storeGet(CLAVE_INFORME)) === pasada) return
+  h.toast('📸 Tu informe de la semana pasada está listo para compartir: /estudio informe pasada', 12_000)
 }
 
 /** Abre un archivo con la aplicación del sistema, sin esperar. */

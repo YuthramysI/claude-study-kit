@@ -22,6 +22,12 @@ A plugin that turns Claude Code into your study space: **Pomodoro timer**, **spa
 | 📝 **Guide, quiz, audio** | A study guide with glossary and FAQ, an interactive quiz (missed questions become flashcards) and a podcast-style summary read aloud. |
 | 📊 **Stats** | Daily streak, pomodoros and focus hours, accuracy, 7- and 28-day charts, and new, learning and mature cards. |
 | 📄 **Review PDF** | `/estudio pdf`: a printable document with a stats cover, every card, the guides and quizzes Claude wrote, and cut-out double-sided flashcards. |
+| 📊 **Pro stats** | General, Review and Habits views: 30-day review forecast, accuracy curve, FSRS difficulty, hour × weekday heatmap, best study hours, recent sessions. |
+| 📝 **Sessions & coach** | Every study stretch is a session, every day gets a Markdown journal, and a Claude **coach** gives 2–3 concrete tips from your data (`/estudio resumen`). |
+| 🏆 **Achievements** | XP, levels from Novato to Leyenda, and 24 badges (streaks, marathons, night owl, top exam score…). |
+| 🎯 **Exam plan** | `/examen 15/11 Biochemistry`: countdown, daily card and pomodoro goals, FSRS forecast of how much you'll remember on exam day, and an alert if you fall behind. |
+| ⏱️ **Mock exam** | `/estudio:simulacro`: timed exam from your sources, graded out of 10 by Claude, with weak points and cards from your mistakes. |
+| 📸 **Weekly report** | `/estudio informe`: a beautiful 1080×1350 PNG of your week, ready to share. |
 | 🔁 **Anki** | Export your cards to Anki and import Anki decks or CSV files. |
 | 🛡️ **Safe** | Automatic card backups (one week of history) and recovery if `tarjetas.json` gets corrupted. |
 
@@ -55,6 +61,12 @@ or from a shell: `claude plugin install estudio --marketplace YuthramysI/claude-
 | `/pomodoro 50 Chemistry` | A 50-minute focus session on a task |
 | `/estudio pdf` | Your whole review as a printable PDF |
 
+## 📊 Stats & weekly report
+
+![Plugin charts: level, exam plan, review forecast, accuracy, habits heatmap, time per topic](docs/estadisticas.png)
+
+<img src="docs/informe.png" alt="Weekly report card" width="320">
+
 ## 🧠 Mind maps
 
 ![Mind map drawn by the plugin](docs/mapa.png)
@@ -85,7 +97,7 @@ The alarm uses `paplay` and the voice uses `spd-say`: `sudo apt install speech-d
 ```bash
 claude --plugin-dir .       # run Claude Code with this folder's plugin loaded
 claude plugin validate .
-claude plugin test .        # 71 tests
+claude plugin test .        # 95 tests
 ```
 
 ## 📄 License

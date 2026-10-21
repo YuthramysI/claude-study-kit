@@ -160,11 +160,18 @@ test('la pestaña Stats muestra racha y totales, en terminal y escritorio', asyn
     await ui.press({ key: 'tab-stats' })
     expect(await ui.find({ type: 'Text', text: /🔥 1/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^100 %$/ })).toBeDefined()
+    await ui.press({ key: 'vista-repaso' })
+    expect(await ui.find({ type: 'Text', text: /Pronóstico · próximos 30 días/ })).toBeDefined()
     if (surface === 'terminal') {
       expect(await ui.find({ type: 'Text', text: /1 aprendiendo/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /Bien 1/ })).toBeDefined()
     } else {
-      expect(await ui.find({ type: 'Text', text: /Tarjetas de «historia»/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /Etapas · historia/ })).toBeDefined()
+      expect(String((await ui.find({ type: 'Svg' }))?.props.alt)).toContain('Repasos previstos')
     }
+    await ui.press({ key: 'vista-habitos' })
+    expect(await ui.find({ type: 'Text', text: /¿Cuándo estudias\?/ })).toBeDefined()
+    await ui.press({ key: 'vista-general' })
     await ui.unmount()
   }
 })
@@ -382,4 +389,123 @@ test('la pestaña Mapa dibuja los mapas de salidas/ (árbol en la terminal, SVG 
     }
     await ui.unmount()
   }
+})
+
+test('/estudio resumen: resume la sesión, pide consejo al coach y escribe el diario', async ($, on) => {
+  const clock = mock.clock(on, { now: T0 })
+  mock.store(on)
+  mock.env(on, { HOME: '/home/prueba' })
+  const archivos = disco(on)
+  const pedidos: string[] = []
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('tool.register', (_, e) => ({ value: { tool: `mcp__estudio__${e.name}` } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('ui.log', () => ({ value: undefined }))
+  on('model.complete', (_, e) => {
+    pedidos.push(e.prompt)
+    return { value: { isAnswered: true, text: '- Buen ritmo: 1 pomodoro.\n- Mañana repasa a las 10 h.', usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } }
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'cuaderno', args: 'bio', ...CMD })
+  await $.command.run({ command: 'pomodoro', args: '1 Células', ...CMD })
+  await clock.advance(61_000)
+  await $.tool.call({ tool: 'mcp__estudio__guardar_tarjetas', tarjetas: [{ frente: '¿ADN?', reverso: 'Ácido desoxirribonucleico' }] })
+
+  const r = await $.command.run({ command: 'estudio', args: 'resumen', ...CMD })
+  expect(r.text).toContain('📝 Sesión de 10:00 a 10:01')
+  expect(r.text).toContain('🍅 1 pomodoros · 1 min de enfoque: Células 1 min')
+  expect(r.text).toContain('1 creadas')
+  expect(r.text).toContain('🤖 Coach:\n- Buen ritmo: 1 pomodoro.')
+  expect(JSON.parse(pedidos[0] ?? '{}').temas7dias).toEqual([{ tema: 'Células', minutos: 1 }])
+  const diario = archivos.get('/home/prueba/estudio/diario/2026-10-20.md') ?? ''
+  expect(diario).toContain('## Sesiones')
+  expect(diario).toContain('Mañana repasa a las 10 h.')
+
+  const datos = JSON.parse(String((await $.tool.call({ tool: 'mcp__estudio__resumen_estudio' })).result)) as { racha: number; sesionActual: string }
+  expect(datos.racha).toBe(1)
+  expect(datos.sesionActual).toContain('1 🍅')
+
+  const ui = await $.ui.mount({ ...PANEL, surface: 'terminal' })
+  await ui.press({ key: 'tab-stats' })
+  await ui.press({ key: 'vista-habitos' })
+  expect(await ui.find({ type: 'Text', text: /Sesiones recientes/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /10:00–10:01/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Tus mejores horas/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('/examen fija el plan, sube el límite de nuevas y el panel muestra la cuenta atrás', { options: { nuevasPorDia: 1 } }, async ($, on) => {
+  const { archivos } = motor(on)
+  await cuadernoConTarjetas($, Array.from({ length: 9 }, (_, i) => ({ frente: `P${i}`, reverso: `R${i}` })))
+  expect((await $.command.run({ command: 'examen', args: '', ...CMD })).text).toContain('Sin plan de examen')
+  expect((await $.command.run({ command: 'examen', args: 'cuando sea', ...CMD })).text).toContain('No entiendo «cuando sea»')
+
+  const r = await $.command.run({ command: 'examen', args: '15 de noviembre Final de Química', ...CMD })
+  expect(r.text).toContain('🎯 Final de Química: 15 de noviembre de 2026 (en 26 días)')
+  expect(JSON.parse(archivos.get('/home/prueba/estudio/repaso/plan.json') ?? '{}')).toEqual({ examen: '2026-11-15', titulo: 'Final de Química' })
+  expect((await $.command.run({ command: 'examen', args: 'meta 6', ...CMD })).text).toContain('hoy 0/6 pomodoros')
+
+  // 9 nuevas en 24 días útiles: 1/día, ya cubierto por el límite; con el examen en 3 días, sube a 9
+  await $.command.run({ command: 'examen', args: 'en 3 días', ...CMD })
+  const anki = await $.command.run({ command: 'anki', args: '', ...CMD })
+  expect(anki.text).toContain('9 tarjetas · 9 para hoy')
+
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...PANEL, surface })
+    await ui.press({ key: 'tab-cuaderno' })
+    expect(await ui.find({ type: 'Text', text: /🎯 Final de Química · en 3 días/ })).toBeDefined()
+    if (surface === 'desktop') expect(String((await ui.find({ type: 'Svg' }))?.props.alt)).toContain('previsión')
+    await ui.press({ key: 'tab-pomodoro' })
+    expect(await ui.find({ type: 'Text', text: /🎯 Final de Química en 3 días/ })).toBeDefined()
+    await ui.unmount()
+  }
+  expect((await $.command.run({ command: 'examen', args: 'borrar', ...CMD })).text).toContain('quitado')
+})
+
+test('simulacro: cronómetro en la barra (junto al pomodoro), aviso al acabar, nota y evolución', async ($, on) => {
+  const clock = mock.clock(on, { now: T0 })
+  mock.store(on)
+  mock.env(on, { HOME: '/home/prueba' })
+  disco(on)
+  const avisos: string[] = []
+  const estados: (string | undefined)[] = []
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('tool.register', (_, e) => ({ value: { tool: `mcp__estudio__${e.name}` } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', (_, e) => {
+    estados.push(e.text)
+    return { value: undefined }
+  })
+  on('ui.toast', (_, e) => {
+    avisos.push(e.text)
+    return { value: undefined }
+  })
+  on('ui.log', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'cuaderno', args: 'fisica', ...CMD })
+  await $.command.run({ command: 'pomodoro', args: '25 Física', ...CMD })
+
+  const inicio = await $.tool.call({ tool: 'mcp__estudio__examen_cronometro', accion: 'iniciar', minutos: 2, preguntas: 4 })
+  expect(String(inicio.result)).toContain('2 min para 4 preguntas')
+  await clock.advance(1_000)
+  expect(estados.at(-1)).toContain('│  📝 Simulacro 01:59')
+  expect(estados.at(-1)).toContain('🍅')
+  await clock.advance(121_000)
+  expect(avisos.some(a => a.includes('⏰ ¡Tiempo del simulacro!'))).toBe(true)
+  expect(String((await $.tool.call({ tool: 'mcp__estudio__examen_cronometro', accion: 'parar' })).result)).toContain('se pasó del tiempo')
+
+  expect(String((await $.tool.call({ tool: 'mcp__estudio__registrar_examen', nota: 6.25, preguntas: 4, titulo: 'Cinemática' })).result))
+    .toBe('📝 Nota guardada: 6.3/10. Es tu primer simulacro de este cuaderno. La evolución se ve en 📊 Stats.')
+  expect(String((await $.tool.call({ tool: 'mcp__estudio__registrar_examen', nota: 8, preguntas: 4 })).result)).toContain('⬆️ +1.7 respecto al anterior (6.3)')
+  expect(avisos.some(a => a.includes('📝 A prueba'))).toBe(true)
+
+  const ui = await $.ui.mount({ ...PANEL, surface: 'terminal' })
+  await ui.press({ key: 'tab-stats' })
+  expect(await ui.find({ type: 'Text', text: /Exámenes simulados/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^8\.0 \/10/ })).toBeDefined()
+  await ui.unmount()
 })

@@ -40,6 +40,14 @@ export function fecha(ms: number): string {
   return `${d.getFullYear()}-${mm}-${dd}`
 }
 
+export const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'] as const
+
+/** «20 de octubre de 2026». */
+export function fechaLarga(dia: string): string {
+  const [y, m, d] = dia.split('-').map(Number)
+  return `${d ?? ''} de ${MESES[(m ?? 1) - 1] ?? ''} de ${y ?? ''}`
+}
+
 export function sumarDias(dia: string, dias: number): string {
   const [y, m, d] = dia.split('-').map(Number)
   return fecha(new Date(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + dias).getTime())
@@ -165,6 +173,20 @@ export function nuevasEnEspera(tarjetas: readonly Tarjeta[], hoy: string, limite
   const nuevas = tarjetas.filter(t => esNueva(t) && t.vence <= hoy).length
   const cola = pendientes(tarjetas, hoy, limiteNuevas).filter(esNueva).length
   return nuevas - cola
+}
+
+/**
+ * Repasos previstos en cada uno de los próximos `dias` días (el primero, hoy,
+ * incluye los atrasados). Las nuevas no cuentan: entran según el límite diario.
+ */
+export function pronostico(tarjetas: readonly Tarjeta[], hoy: string, dias = 30): number[] {
+  const cuenta = Array.from({ length: dias }, () => 0)
+  for (const t of tarjetas) {
+    if (esNueva(t)) continue
+    const i = Math.max(0, diasEntre(hoy, t.vence))
+    if (i < dias) cuenta[i] = (cuenta[i] ?? 0) + 1
+  }
+  return cuenta
 }
 
 /** Texto corto para un intervalo: "hoy", "1 d", "3 sem", "2 m", "1,5 a". */

@@ -1,5 +1,6 @@
 // Cuadernos: una carpeta por tema con fuentes/, salidas/ y tarjetas.json.
-import type { InfoCuaderno, Tarjeta } from '../types'
+import type { InfoCuaderno, PlanExamen, Tarjeta } from '../types'
+import { sanear as sanearPlan } from './plan'
 import type { Host } from './host'
 
 const CLAVE_ACTIVO = 'cuadernoActivo'
@@ -200,6 +201,21 @@ export async function guardarTarjetas(h: Host, ruta: string, tarjetas: readonly 
   await h.fs.write(archivo, texto)
   const dia = DIAS_SEMANA[new Date(ahora).getDay()] ?? 'dom'
   await h.fs.write(`${ruta}/.respaldos/tarjetas-${dia}.json`, texto)
+}
+
+export async function leerPlan(h: Host, ruta: string): Promise<PlanExamen | null> {
+  const archivo = `${ruta}/plan.json`
+  if (!(await h.fs.exists(archivo))) return null
+  try {
+    return sanearPlan(JSON.parse(await h.fs.read(archivo)))
+  } catch {
+    return null
+  }
+}
+
+/** Guarda el plan de examen del cuaderno (null lo quita). */
+export async function guardarPlan(h: Host, ruta: string, plan: PlanExamen | null) {
+  await h.fs.write(`${ruta}/plan.json`, plan === null ? 'null\n' : JSON.stringify(plan, null, 2) + '\n')
 }
 
 export async function activo(h: Host): Promise<string | undefined> {

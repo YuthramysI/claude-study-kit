@@ -1,7 +1,7 @@
 {
   "name": "estudio",
-  "version": "1.2.0",
-  "description": "Estudia dentro de Claude Code: Pomodoro, tarjetas con repaso espaciado y cuadernos de fuentes al estilo NotebookLM (preguntas con citas, guía, quiz y resumen en audio).",
+  "version": "1.3.0",
+  "description": "Estudia dentro de Claude Code: Pomodoro con tareas, tarjetas FSRS, cuadernos al estilo NotebookLM, mapas mentales, plan de examen, simulacros, logros, estadísticas pro, diario con coach e informe semanal.",
   "author": {
     "name": "Yuthramys Ibarra",
     "url": "https://github.com/YuthramysI"
@@ -17,7 +17,9 @@
     "spaced-repetition",
     "anki",
     "notebooklm",
-    "productividad"
+    "productividad",
+    "gamificacion",
+    "examen"
   ],
   "types": "./types/index.d.ts",
   "userConfig": {

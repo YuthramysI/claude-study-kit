@@ -33,6 +33,7 @@ describe('documento de repaso', () => {
     expect(tituloDocumento('quiz-2026-10-20.md')).toBe('Quiz · 20 de octubre de 2026')
     expect(tituloDocumento('mis-notas.md')).toBe('mis-notas')
     expect(tituloDocumento('quiz-2026-10-20-2.md')).toBe('Quiz · 20 de octubre de 2026 (2)')
+    expect(tituloDocumento('simulacro-2026-10-20.md')).toBe('Examen simulado · 20 de octubre de 2026')
   })
 
   test('agrupa: hoy primero, después aprendiendo y maduras', async () => {

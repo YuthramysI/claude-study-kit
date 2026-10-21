@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import * as anki from './anki'
 import { interpretar, normalizar } from './cuadernos'
 import * as pomo from './pomodoro'
-import { nueva } from './srs'
+import { nueva, pronostico } from './srs'
 import * as stats from './stats'
 
 const D = { enfoque: 25, descanso: 5, descansoLargo: 15 }
@@ -109,5 +109,52 @@ describe('Pomodoro pro', () => {
     expect(pomo.restaurar(p, p.terminaEn + 1).estado).toBe('parado')
     expect(pomo.restaurar({ fase: 'otra' }, T0)).toEqual(pomo.INICIAL)
     expect(pomo.restaurar(undefined, T0)).toEqual(pomo.INICIAL)
+  })
+})
+
+describe('gráficos pro: datos', () => {
+  test('minutosPorHora reparte un pomodoro que cruza la hora', async () => {
+    const inicio = new Date(2026, 9, 20, 10, 50).getTime()
+    expect(stats.minutosPorHora(inicio, inicio + 25 * 60_000)).toEqual({ '10': 10, '11': 15 })
+  })
+
+  test('registrar suma horas y notas, y acumula exámenes; sanear filtra lo inválido', async () => {
+    let s = stats.registrar({}, '2026-10-20', { horas: { '9': 25 }, notas: { bien: 2 } })
+    s = stats.registrar(s, '2026-10-20', { horas: { '9': 5, '10': 20 }, notas: { bien: -1, otra: 1 }, examenes: [{ nota: 8.5, preguntas: 10, cuaderno: 'bio' }] })
+    expect(s['2026-10-20']?.horas).toEqual({ '9': 30, '10': 20 })
+    expect(s['2026-10-20']?.notas).toEqual({ bien: 1, otra: 1 })
+    expect(stats.examenes(s).map(e => e.nota)).toEqual([8.5])
+    const sano = stats.sanear({ '2026-10-20': { pomodoros: 1, horas: { '9': 5, '99': 3 }, notas: { bien: 1, raro: 4 }, examenes: [{ nota: 14 }, { nota: 'x' }] } })
+    expect(sano['2026-10-20']?.horas).toEqual({ '9': 5 })
+    expect(sano['2026-10-20']?.notas).toEqual({ bien: 1 })
+    expect(sano['2026-10-20']?.examenes?.map(e => e.nota)).toEqual([10])
+  })
+
+  test('horario y mejores horas', async () => {
+    const s = {
+      '2026-10-19': { ...stats.VACIO, horas: { '10': 50, '18': 20 } }, // lunes
+      '2026-10-20': { ...stats.VACIO, horas: { '10': 25 } }, // martes
+    }
+    const m = stats.horario(s, '2026-10-20', 7)
+    expect(m[0]?.[10]).toBe(50)
+    expect(m[1]?.[10]).toBe(25)
+    expect(stats.mejoresHoras(s, '2026-10-20', 7)).toEqual([{ hora: 10, minutos: 75 }, { hora: 18, minutos: 20 }])
+  })
+
+  test('aciertos por día: null sin repasos', async () => {
+    const s = { '2026-10-20': { ...stats.VACIO, repasos: 4, aciertos: 3 } }
+    expect(stats.aciertosPorDia(s, '2026-10-20', 2)).toEqual([null, 75])
+  })
+
+  test('pronóstico: los atrasados cuentan hoy y las nuevas no cuentan', async () => {
+    const base = nueva({ frente: 'a', reverso: 'b' }, '2026-10-20', 'x')
+    const ts = [
+      { ...base, id: '1', ultimo: 1, vence: '2026-10-18' },
+      { ...base, id: '2', ultimo: 1, vence: '2026-10-21' },
+      { ...base, id: '3', ultimo: 1, vence: '2026-10-21' },
+      { ...base, id: '4' },
+      { ...base, id: '5', ultimo: 1, vence: '2027-01-01' },
+    ]
+    expect(pronostico(ts, '2026-10-20', 3)).toEqual([1, 2, 0])
   })
 })
