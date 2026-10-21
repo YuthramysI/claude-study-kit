@@ -1,199 +1,176 @@
-# 📚 estudio: estudia dentro de Claude Code
+<div align="center">
+
+# ✱ estudio
+
+**Tu espacio de estudio, dentro de Claude Code.**
+Pomodoro · tarjetas con repaso espaciado (FSRS) · cuadernos que responden con tus apuntes y citan la página.
 
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-green.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
-[![Tests](https://img.shields.io/badge/tests-100_pasan-brightgreen.svg)](#desarrollo)
+[![Tests](https://img.shields.io/badge/tests-100_pasan-brightgreen.svg)](#-desarrollo)
+[![Idiomas](https://img.shields.io/badge/idioma-español_·_English-blue.svg)](#-idioma--language)
 
-**[English](README.en.md)** · Español
+**Español** · [English](README.en.md)
 
-> 🌐 **Interfaz en español o inglés.** Sigue el idioma de tu sistema; cámbialo en `/config` → **estudio** → *Idioma / Language*. [Más abajo](#-idioma--language).
+<a href="docs/demo.mp4"><img src="docs/demo.gif" alt="Demo de 60 segundos: instalar, cuaderno, Pomodoro, tarjetas, preguntas con citas, mapa mental, estadísticas, examen, informe semanal, PDF e idioma" width="820"></a>
 
-Un plugin que convierte Claude Code en tu espacio de estudio: **Pomodoro**, **tarjetas con repaso espaciado** y **cuadernos de fuentes al estilo NotebookLM**. Claude estudia contigo usando *tus* apuntes y cita de dónde saca cada respuesta.
+<sub>▶️ Demo de 1 minuto · <a href="docs/demo.mp4">ver en MP4 (HD)</a></sub>
 
-![Panel de estudio en VS Code: anillo del Pomodoro, pomodoros de la semana y mapa de actividad](docs/graficos.png)
+</div>
 
-<sub>El panel en VS Code y en la app de escritorio (datos de ejemplo). En la terminal se dibuja así:</sub>
+---
 
-```
-🍅 Pomodoro  🃏 Repaso  📚 Cuaderno  🧠 Mapa  📊 Stats  🏆 Logros
-──────────────────────────────────────────────
-🍅 ENFOQUE   ● ○ ○ ○
+## Contenido
 
-┏━┓ ┏━╸   ┏━┓ ┏━┓
-┃ ┃ ┗━┓ ╹ ┃ ┃ ┃ ┃
-┗━┛ ┗━┛ ╹ ┗━┛ ┗━┛
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━──────────
-
-[ ⏸ Pausar ] [ ⏭ Saltar ] [ ⏹ Parar ]
-Después: descanso · 5 min
-Hoy: 3 pomodoros · 1 h 15 min  ·  🔥 5 días
-```
-
-## ✨ Qué hace
-
-| | |
-|---|---|
-| 🍅 **Pomodoro** | Reloj en la barra de estado y en el panel. Alarma (campana ×3) y notificación al terminar cada fase. Descanso largo cada 4 pomodoros. **Cada pomodoro lleva su tarea** (por defecto, el cuaderno activo) y las estadísticas muestran el tiempo por tema. Si cierras Claude Code, el pomodoro sigue al volver. |
-| 🃏 **Tarjetas FSRS** | Claude crea flashcards a partir de tus fuentes y tú las repasas en el panel. Las programa **FSRS**, el algoritmo de Anki moderno (menos repasos para recordar lo mismo), con un **límite diario de nuevas**. Puedes **escribir tu respuesta** para que Claude la corrija, **editar** o **borrar** una tarjeta y **deshacer** la última nota. |
-| 📚 **Cuadernos** | Una carpeta por tema con tus PDFs, apuntes o fotos. Claude responde **solo con tus fuentes**, cita `[archivo, p. X]` y avisa cuando algo no está en ellas. Cuando añades material, **lo detecta y te ofrece resumirlo y crear tarjetas**. |
-| 🧠 **Mapa mental** | Claude organiza los conceptos en un mapa que se dibuja en el panel y en el PDF. |
-| 📝 **Guía, quiz y audio** | Guía de estudio con glosario y FAQ, quiz interactivo (las preguntas que fallas se convierten en tarjetas) y un resumen tipo podcast leído en voz alta. |
-| 📊 **Estadísticas pro** | Tres vistas: **General** (racha, semana, tiempo por tema, actividad de 16 semanas), **Repaso** (pronóstico de repasos a 30 días, curva de aciertos, notas, dificultad FSRS, etapas) y **Hábitos** (mapa hora × día de cuándo estudias, tus mejores horas, sesiones recientes). |
-| 📝 **Sesiones y diario** | Cada tramo de estudio queda como sesión, cada día tiene su diario en Markdown y un **coach** (Claude) te da 2–3 consejos concretos con tus datos. |
-| 🏆 **Logros y niveles** | XP por cada minuto de foco y cada repaso, niveles con título (de Novato a Leyenda) y 24 insignias: rachas, maratones, búho nocturno, sobresaliente… |
-| 🎯 **Plan de examen** | Fecha del examen por cuaderno: cuenta atrás, meta diaria de tarjetas y pomodoros, **previsión de cuánto recordarás ese día** (FSRS) y aviso si vas atrasado. |
-| ⏱️ **Examen simulado** | Cronometrado, con preguntas tipo test y de desarrollo sacadas de tus fuentes; Claude lo corrige con nota sobre 10 y ves tu evolución. |
-| 📸 **Informe semanal** | Una tarjeta PNG preciosa con tu semana (horas, racha, temas, logros, nivel), lista para compartir en redes o con tu grupo. |
-| 📄 **PDF de repaso** | Un documento listo para imprimir: portada con estadísticas y gráficos, todas tus tarjetas, las guías y quizzes que generó Claude, y tarjetas para recortar a doble cara. |
-| 🔁 **Anki** | Exporta tus tarjetas a Anki o importa mazos de Anki y CSV. |
-| 🛡️ **A prueba de fallos** | Copia de seguridad automática de las tarjetas (una semana de historia) y recuperación si `tarjetas.json` se daña. |
-
-Todo se queda en tu equipo: el plugin no usa la red, y tus fuentes solo las lee Claude cuando se lo pides.
+- [Instalación](#-instalación)
+- [Cómo se usa, paso a paso](#-cómo-se-usa-paso-a-paso)
+- [Todo lo que hace](#-todo-lo-que-hace)
+- [Referencia](#-referencia): comandos, skills, teclas, configuración, idioma y datos
+- [Requisitos](#-requisitos) · [Problemas frecuentes](#-problemas-frecuentes) · [Desarrollo](#-desarrollo)
 
 ## 🚀 Instalación
 
-Necesitas [Claude Code](https://docs.claude.com/en/docs/claude-code). Está probado con la versión 2.1.304.
-
-En una sesión de Claude Code, en la terminal:
+Necesitas [Claude Code](https://docs.claude.com/en/docs/claude-code). Dentro de una sesión de Claude Code:
 
 ```
 /plugin install estudio --marketplace YuthramysI/claude-study-kit
 ```
 
-Responde `y` para añadir el marketplace y elige el ámbito (usuario). Desde una shell:
+Responde `y` para añadir el marketplace y elige el ámbito de usuario. También puedes instalarlo de estas dos formas:
 
-```bash
-claude plugin install estudio --marketplace YuthramysI/claude-study-kit
-```
+- **Desde una shell:** `claude plugin install estudio --marketplace YuthramysI/claude-study-kit`
+- **En la app de escritorio:** **+** junto al cuadro de texto → **Plugins** → **Add marketplace** `YuthramysI/claude-study-kit` → **Add plugin**.
 
-En la app de escritorio: **+** junto al cuadro de texto → **Plugins** → **Add marketplace** `YuthramysI/claude-study-kit` → **Add plugin**.
+Escribe `/estudio ayuda` para ver todos los comandos.
 
-## 🏁 Primeros pasos
+## 🧭 Cómo se usa, paso a paso
+
+### 1. Crea un cuaderno por asignatura
 
 ```text
-/cuaderno biologia            crea ~/estudio/biologia/
-                              → copia tus PDFs o apuntes a ~/estudio/biologia/fuentes/
-/estudio                      abre el panel
-/pomodoro                     empieza a estudiar (25 min)
-/estudio:tarjetas 20          Claude crea 20 tarjetas a partir de tus fuentes
-/repasar                      repasa lo que toca hoy
-/estudio:mapa                 mapa mental de tus fuentes
-/estudio pdf                  todo tu repaso en un PDF para imprimir
-/examen 15/11 Bioquímica      plan de examen con cuenta atrás y meta diaria
-/estudio:simulacro            examen simulado cronometrado, con nota sobre 10
-/estudio informe              tu semana en una imagen para compartir
+/cuaderno biologia
 ```
 
-## 📖 Comandos
+Se crea `~/estudio/biologia/`. Copia tus PDFs, apuntes, fotos o documentos en **`~/estudio/biologia/fuentes/`**. El plugin detecta el material nuevo y te ofrece **✨ Resumir y crear tarjetas**.
 
-| Comando | Qué hace |
-|---|---|
-| `/estudio [pomodoro\|repaso\|cuaderno\|mapa\|stats]` | Abre el panel en esa pestaña |
-| `/estudio pdf` | Genera el PDF de repaso del cuaderno en `salidas/` y lo abre |
-| `/estudio callar` · `/estudio ayuda` | Detiene la voz · muestra la ayuda |
-| `/pomodoro` | Inicia el pomodoro (si ya corre, dice cuánto queda) |
-| `/pomodoro probar` | Prueba la alarma y los avisos |
-| `/pomodoro 50` · `/pomodoro iniciar 50` | Un enfoque de 50 minutos |
-| `/pomodoro 50 Química` · `/pomodoro tarea Química` | Un enfoque con su tarea · cambiar la tarea |
-| `/pomodoro pausar\|reanudar\|saltar\|parar\|estado` | Control del temporizador (también vale `/promodoro`) |
-| `/cuaderno` · `/cuaderno <nombre>` | Lista los cuadernos · crea o activa uno |
-| `/repasar` | Repaso de las tarjetas pendientes |
-| `/estudio resumen` | Tu sesión, tu día y 2–3 consejos del coach; actualiza el diario |
-| `/estudio informe [pasada]` | Tarjeta PNG de la semana (actual o pasada) en `~/estudio/informes/` |
-| `/examen <fecha> [título]` | Plan de examen: «/examen 15/11 Bioquímica», «/examen en 20 días», «/examen 15 de diciembre» |
-| `/examen` · `/examen meta 6` · `/examen borrar` | Estado del plan · meta diaria de pomodoros · quitar el plan |
-| `/anki` | Resumen de tus tarjetas: total, pendientes y etapas |
-| `/anki exportar` | Crea `salidas/anki-<cuaderno>.txt` para importarlo en Anki |
-| `/anki importar <archivo>` | Importa de Anki (texto con tabuladores), CSV (`,` o `;`) o líneas `frente :: reverso` |
+### 2. Abre el panel
 
-### Con Claude (skills)
-
-| Skill | Qué hace |
-|---|---|
-| `/estudio:preguntar <pregunta>` | Respuesta citada a partir de tus fuentes; sin pregunta, resume el cuaderno |
-| `/estudio:resumir [archivos]` | Resume cada fuente (las nuevas, si no dices cuáles) en `salidas/resumen-*.md` y crea sus tarjetas |
-| `/estudio:tarjetas [n] [tema]` | Crea tarjetas siguiendo buenas prácticas (una idea por tarjeta, con su fuente) |
-| `/estudio:guia [tema]` | Guía completa (resumen, ideas clave, mapa de conceptos, glosario, FAQ) → `salidas/` |
-| `/estudio:mapa [tema]` | Mapa mental en `salidas/mapa-*.md`, dibujado en la pestaña 🧠 Mapa y en el PDF |
-| `/estudio:quiz [n] [tema]` | Quiz de opción múltiple, una pregunta a la vez, con su puntuación |
-| `/estudio:simulacro [n] [min] [tema]` | Examen simulado cronometrado: test + desarrollo, nota sobre 10, puntos débiles y tarjetas de los fallos |
-| `/estudio:audio [min] [tema]` | Resumen tipo podcast, leído en voz alta |
-
-También puedes pedirlo con tus palabras: *«hazme un quiz de 5 preguntas sobre el tema 3»*.
-
-### Teclas del panel
-
-| Pestaña | Teclas |
-|---|---|
-| 🍅 Pomodoro | `i` iniciar · `p` pausar/reanudar · `s` saltar fase · `x` parar · `t` cambiar la tarea |
-| 🃏 Repaso | `m` mostrar respuesta · `1`–`4` Otra vez / Difícil / Bien / Fácil · `w` modo escribir · `e` editar · `b` borrar · `u` deshacer |
-| 📚 Cuaderno | `t` tarjetas · `g` guía · `q` quiz · `x` simulacro · `a` audio · `d` **PDF de repaso** · `e` fijar examen · `r` recargar · `n` resumir fuentes nuevas · `i` ignorarlas |
-| 🧠 Mapa | `n` nuevo mapa mental |
-| 📊 Stats | `g` general · `r` repaso · `h` hábitos · `i` informe semanal · `c` consejo del coach (en Hábitos) |
-
-## 🗂️ Dónde se guardan tus datos
-
-```
-~/estudio/
-└── biologia/
-    ├── fuentes/            ← tus materiales: pdf, md, txt, html, docx, imágenes...
-    ├── salidas/            ← guías, quizzes, guiones, exportaciones de Anki
-    │   └── repaso-biologia-2026-10-20.pdf   ← tu PDF de repaso (y su .html)
-    ├── tarjetas.json       ← tus tarjetas (puedes editarlo a mano)
-    ├── tarjetas.bak.json   ← versión anterior
-    ├── plan.json           ← tu plan de examen
-    └── .respaldos/         ← una copia por día de la semana
-~/estudio/diario/2026-10-20.md        ← el diario de cada día: totales, sesiones y consejo del coach
-~/estudio/informes/semana-2026-10-19.png  ← tus informes semanales
+```text
+/estudio
 ```
 
-Para añadir tarjetas a mano basta con `{"frente": "...", "reverso": "..."}`: el plugin completa el resto.
+Se abre un panel junto al chat con seis pestañas: **🍅 Pomodoro · 🃏 Repaso · 📚 Cuaderno · 🧠 Mapa · 📊 Stats · 🏆 Logros**. En VS Code y en la app de escritorio tiene gráficos; en la terminal se dibuja con caracteres.
 
-## ⚙️ Configuración
+### 3. Concéntrate con el Pomodoro
 
-En `/config` → **estudio**:
+```text
+/pomodoro 25 Química
+```
 
-| Opción | Por defecto |
+El reloj corre en la barra de estado (`🍅 24:59 · enfoque 1/4 · Química`) y suena una campana al terminar cada fase. Cada 4 pomodoros toca un descanso largo, y el tiempo se apunta en el tema de la tarea. Si cierras Claude Code, el pomodoro sigue en marcha cuando vuelves.
+
+### 4. Deja que Claude cree tus tarjetas y repásalas
+
+```text
+/estudio:tarjetas 20
+/repasar
+```
+
+Claude lee tus fuentes y crea tarjetas de una idea cada una, con su fuente. En el repaso:
+
+- Pulsa `m` para ver la respuesta y califícala con `1`–`4` (Otra vez · Difícil · Bien · Fácil).
+- **FSRS**, el algoritmo moderno de Anki, decide cuándo vuelve cada tarjeta.
+- Con `w` escribes tu respuesta y Claude la corrige.
+
+### 5. Pregunta a tus apuntes
+
+```text
+/estudio:preguntar ¿Qué produce la mitocondria?
+```
+
+Claude responde **solo con tus fuentes** y cita cada dato con su archivo y página: `[tema1.pdf, p. 4]`. Si algo no está en ellas, te lo dice. También puedes pedírselo con tus palabras: *«hazme un quiz de 5 preguntas sobre el tema 3»*.
+
+### 6. Repasa con otros formatos
+
+| Comando | Qué obtienes |
 |---|---|
-| Carpeta de estudio | `~/estudio` |
-| Minutos de enfoque / descanso / descanso largo | 25 / 5 / 15 |
-| Alarma al terminar · toques · volumen | sí · 3 · 80 |
-| Iniciar solo el siguiente pomodoro | no |
-| Tarjetas nuevas por día | 20 |
-| Retención deseada (FSRS) | 90 % |
-| Recordar tarjetas pendientes al abrir sesión | sí |
-| Idioma / Language | `auto` (el del sistema) · `es` · `en` |
+| `/estudio:resumir` | Un resumen de cada fuente nueva y sus tarjetas |
+| `/estudio:guia` | Una guía de estudio con resumen, ideas clave, glosario y FAQ |
+| `/estudio:mapa` | Un mapa mental, dibujado en el panel y en el PDF |
+| `/estudio:quiz 10` | Un quiz interactivo; las preguntas que falles se convierten en tarjetas |
+| `/estudio:audio 5` | Un resumen tipo podcast leído en voz alta (`/estudio callar` lo para) |
 
-## 🌐 Idioma / Language
+### 7. Prepara el examen
 
-Todo el plugin habla **español o inglés**: el panel y sus botones, las respuestas de los comandos, los avisos del Pomodoro, la voz, los logros y niveles, el PDF de repaso y el informe semanal. Las skills (`/estudio:preguntar`, `/estudio:guia`…) también responden y escriben sus archivos en el idioma elegido; las citas de tus fuentes se quedan como están.
+```text
+/examen 15/11 Bioquímica
+/estudio:simulacro 10 15
+```
 
-- **`auto`** (por defecto): mira `LANGUAGE`, `LC_ALL` y `LANG`; si empiezan por `es`, español; si no, inglés.
-- **`es`** o **`en`**: fija el idioma, sea cual sea el del sistema.
+- **`/examen`** activa el plan: una cuenta atrás, la meta diaria de tarjetas y pomodoros, y una previsión de cuánto recordarás ese día.
+- **`/estudio:simulacro`** es un examen cronometrado sacado de tus fuentes. Claude lo corrige con nota sobre 10, te dice tus puntos débiles y convierte cada fallo en una tarjeta.
 
-Los comandos se llaman igual en los dos idiomas, pero entienden los argumentos en ambos: `/pomodoro start|pause|resume|skip|stop|status|task`, `/estudio review|notebook|map|achievements|summary|report [last]|mute|help`, `/anki export|import`, `/examen goal|clear` y fechas como «November 15», «11/15» o «in 20 days».
+### 8. Mira tu progreso y compártelo
 
-## 📊 Estadísticas pro
+| Comando | Qué obtienes |
+|---|---|
+| `/estudio stats` · `/estudio logros` | Tu racha, tus gráficos y a qué horas rindes más · tu nivel y tus 24 logros |
+| `/estudio resumen` | Tu sesión y tu día, con 2–3 consejos del coach; se guarda en el diario |
+| `/estudio informe` | Una imagen de tu semana lista para compartir |
+| `/estudio pdf` | Todo tu repaso en un PDF para imprimir |
 
-![Gráficos del plugin: nivel, plan de examen, pronóstico de repasos, curva de aciertos, mapa de hábitos y tiempo por tema](docs/estadisticas.png)
+## ✨ Todo lo que hace
 
-<sub>Gráficos reales del plugin con datos de ejemplo. En la terminal se dibujan con caracteres.</sub>
+| | |
+|---|---|
+| 🍅 **Pomodoro** | El reloj va en la barra de estado y en el panel. Al terminar cada fase suena la alarma y llega un aviso; cada 4 pomodoros toca un descanso largo. Cada pomodoro lleva una tarea y suma tiempo a su tema. Sigue en marcha aunque reinicies Claude Code. |
+| 🃏 **Tarjetas FSRS** | Claude las crea a partir de tus fuentes y FSRS las programa. Hay un límite diario de tarjetas nuevas y un modo de escribir la respuesta para que Claude la corrija. Puedes editar, borrar o deshacer la última nota. |
+| 📚 **Cuadernos** | Cada asignatura tiene una carpeta con tus materiales. Las respuestas salen solo de tus fuentes, con citas `[archivo, p. X]`. El plugin detecta el material nuevo y te ofrece resumirlo. |
+| 🧠 **Mapas mentales** | Claude ordena los conceptos y el plugin los dibuja en el panel y en el PDF. |
+| 📝 **Guía, quiz y audio** | Guía con glosario y FAQ, quiz interactivo y resumen tipo podcast en voz alta. |
+| 📊 **Estadísticas** | Tres vistas: **General**, **Repaso** (pronóstico a 30 días, curva de aciertos, dificultad) y **Hábitos** (a qué hora y qué día estudias, tus mejores horas). |
+| 📝 **Sesiones, diario y coach** | Cada tramo de estudio queda como sesión y cada día tiene su diario en Markdown. El coach te da consejos concretos con tus datos. |
+| 🏆 **Logros y niveles** | Ganas XP, subes por 8 niveles (de Novato a Leyenda) y puedes conseguir 24 insignias: rachas, maratón, búho nocturno, sobresaliente… |
+| 🎯 **Plan de examen** | Cuenta atrás, meta diaria, previsión de recuerdo el día del examen y aviso si vas atrasado. |
+| ⏱️ **Examen simulado** | Preguntas tipo test y de desarrollo, con cronómetro. Nota sobre 10 y evolución de tus notas. |
+| 📸 **Informe semanal** | Una imagen PNG de 1080×1350 con tu semana. |
+| 📄 **PDF de repaso** | Portada con estadísticas, todas tus tarjetas, tus guías y tarjetas para recortar a doble cara. |
+| 🔁 **Anki** | Exporta tus tarjetas a Anki e importa mazos de Anki o archivos CSV. |
+| 🌐 **Español / English** | Toda la interfaz en tu idioma, incluidas las respuestas de Claude. |
+| 🛡️ **Copias de seguridad** | Una semana de copias de tus tarjetas, y recuperación si el archivo se daña. |
 
-La pestaña **📊 Stats** tiene tres vistas: **General** (`g`), **Repaso** (`r`) con el pronóstico de los próximos 30 días como en Anki, y **Hábitos** (`h`), que descubre a qué horas rindes más.
+Todo se queda en tu equipo: el plugin no usa la red, y Claude solo lee tus fuentes cuando se lo pides.
 
-## 📝 Sesiones, diario y coach
+<details>
+<summary><b>📊 Ver los gráficos, el informe semanal, el mapa y el PDF</b></summary>
 
-- Cada tramo de estudio seguido (sin pausas de más de 30 min) es una **sesión**: duración, pomodoros, temas, tarjetas y aciertos. La en curso se ve en la pestaña Pomodoro y las últimas, en **Hábitos**.
-- Cada día queda en **`~/estudio/diario/AAAA-MM-DD.md`**, que se actualiza solo.
-- **`/estudio resumen`** (o el botón **🤖** en Hábitos): Claude mira tus datos y te da 2–3 consejos concretos para mañana («repasa Bioquímica a las 10 h, tu mejor hora»). Se guardan en el diario.
-- Pregúntale a Claude con tus palabras: *«¿cómo voy esta semana?»*, *«¿qué debería repasar?»*.
+<br>
 
-## 🏆 Logros y niveles
+![Gráficos del plugin: nivel, plan de examen, pronóstico de repasos, aciertos, hábitos y tiempo por tema](docs/estadisticas.png)
 
-Ganas **XP** con cada minuto de foco (1), cada repaso (2, +1 si aciertas), cada pomodoro (5), cada simulacro (50) y cada logro (100). Los niveles suben de **Novato** a **Aprendiz, Estudiante, Avanzado, Erudito, Sabio, Maestro y Leyenda**. Hay **24 insignias**: rachas de 3, 7, 30 y 100 días, 100 h de foco, día perfecto, maratón de 4 h, búho nocturno, madrugador, sobresaliente en un simulacro… Al desbloquear una, el plugin lo celebra.
+<img src="docs/informe.png" alt="Informe semanal: horas de enfoque, pomodoros, racha, tarjetas, aciertos, temas y logros" width="340"> <img src="docs/mapa.png" alt="Mapa mental dibujado por el plugin" width="340">
 
-## 🎯 Plan de examen
+![Páginas del PDF de repaso: portada, tarjetas, guía y tarjetas para recortar](docs/pdf-repaso.png)
+
+![El panel en VS Code: anillo del Pomodoro, pomodoros de la semana y actividad](docs/graficos.png)
+
+<sub>Capturas reales del plugin con datos de ejemplo.</sub>
+
+</details>
+
+<details>
+<summary><b>🃏 Más sobre el repaso (FSRS)</b></summary>
+
+- **FSRS** ajusta con cada nota la *estabilidad* (cuánto aguanta el recuerdo) y la *dificultad* de la tarjeta. El siguiente repaso cae cuando la probabilidad de recordarla baja al 90 %, un valor que puedes cambiar. Junto a cada botón ves cuándo volverá la tarjeta.
+- **Límite diario de nuevas** (20 por defecto): si Claude crea 50 tarjetas de golpe, entran poco a poco. Si tienes un plan de examen y no llegas a tiempo, el límite sube solo.
+- **⌨ Modo escribir** (`w`): Claude compara tu respuesta con la correcta por su significado y te sugiere la nota. Sin conexión, compara palabras clave.
+- **Editar** (`e`), **borrar** (`b`) y **deshacer** la última nota (`u`), sin salir del panel.
+- Las tarjetas de versiones anteriores, programadas con SM-2, se convierten solas.
+
+</details>
+
+<details>
+<summary><b>🎯 Más sobre el plan de examen y el simulacro</b></summary>
 
 ```text
 /examen 15/11 Final de Bioquímica
@@ -204,111 +181,191 @@ Ganas **XP** con cada minuto de foco (1), cada repaso (2, +1 si aciertas), cada 
   👉 Hoy te faltan 2 tarjetas nuevas y 3 🍅.
 ```
 
-- Calcula cuántas tarjetas nuevas necesitas al día para verlas todas **dos días antes** del examen, y **sube solo el límite diario** si hace falta.
-- Con FSRS estima **qué porcentaje recordarás el día del examen** si sigues así.
-- La pestaña Cuaderno lo muestra con medidores, y la pestaña Pomodoro, con la cuenta atrás.
+- **Fechas que entiende:** `15/11`, `2026-11-15`, «15 de noviembre», «en 20 días», «mañana».
+- **Otras órdenes:** `/examen meta 6` cambia la meta diaria de pomodoros y `/examen borrar` quita el plan.
+- **El reparto de tarjetas nuevas** está pensado para que las hayas visto todas **dos días antes** del examen.
+- **El simulacro:** `/estudio:simulacro 12 20` son 12 preguntas en 20 minutos, ~70 % tipo test y ~30 % de desarrollo. El cronómetro va en la barra de estado. Al final ves una tabla de aciertos y fallos con citas, y el examen corregido entra en el PDF.
 
-## ⏱️ Examen simulado
+</details>
 
-`/estudio:simulacro 12 20` (12 preguntas, 20 minutos): Claude prepara un examen de tus fuentes (~70 % test, ~30 % desarrollo), el **cronómetro** corre en la barra de estado y avisa al acabar, y al final te da la **nota sobre 10**, una tabla de aciertos y fallos con citas, tus **puntos débiles** y tarjetas nuevas de lo que fallaste. La nota queda en tus estadísticas para ver tu evolución, y el examen corregido entra en el PDF.
+<details>
+<summary><b>📄 Más sobre el PDF de repaso</b></summary>
 
-## 📸 Informe semanal
+Genéralo de cualquiera de estas formas:
 
-<img src="docs/informe.png" alt="Informe semanal de ejemplo: horas de enfoque, pomodoros, racha, tarjetas, aciertos, enfoque por día, temas y logros" width="360">
+- con **`/estudio pdf`**;
+- con el botón **📄 PDF** (tecla `d`) de la pestaña Cuaderno;
+- pidiéndoselo a Claude: *«hazme el PDF de repaso»*.
 
-`/estudio informe` (o el botón **📸** en Stats): una imagen de 1080×1350 con tu semana, lista para Instagram, WhatsApp o tu grupo de estudio. Los lunes, el plugin te recuerda que ya tienes la de la semana pasada (`/estudio informe pasada`).
-
-## 🃏 Repasar mejor
-
-- **FSRS**: cada nota ajusta la *estabilidad* (cuánto aguanta el recuerdo) y la *dificultad* de la tarjeta, y el siguiente repaso cae cuando la probabilidad de recordarla baja al 90 % (configurable). Junto a cada botón ves cuándo volverá la tarjeta. Las tarjetas de versiones anteriores (SM-2) se convierten solas.
-- **Límite diario de nuevas** (20 por defecto): si Claude crea 50 tarjetas de golpe, entran poco a poco.
-- **⌨ Modo escribir** (`w`): escribes tu respuesta antes de verla, Claude la compara con la correcta por su significado y te sugiere la nota (sin conexión, compara las palabras clave).
-- **✎ Editar** (`e`), **🗑 Borrar** (`b`) y **↶ Deshacer** (`u`) la última calificación, sin salir del panel.
-
-## 🧠 Mapas mentales
-
-![Mapa mental de ejemplo dibujado por el plugin](docs/mapa.png)
-
-`/estudio:mapa [tema]`: Claude organiza los conceptos de tus fuentes en un árbol y lo guarda como lista en `salidas/mapa-<tema>.md` (puedes editarla a mano). El plugin lo dibuja en la pestaña **🧠 Mapa** (en la terminal, como árbol de texto) y en el PDF de repaso.
-
-## 📥 Fuentes nuevas
-
-El plugin revisa la carpeta `fuentes/` cada medio minuto. Cuando añades un PDF o unos apuntes, te avisa y la pestaña **📚 Cuaderno** ofrece **✨ Resumir y crear tarjetas**: Claude escribe `salidas/resumen-<archivo>.md` y crea las tarjetas de cada fuente. **Ignorar** las da por vistas.
-
-## 📄 PDF de repaso
-
-Todo lo que has estudiado en un cuaderno, en un solo PDF listo para leer en la tablet o imprimir.
-
-![Páginas del PDF de repaso: portada con estadísticas, tarjetas, guía de estudio y tarjetas para recortar (anverso y reverso)](docs/pdf-repaso.png)
-
-<sub>Páginas de un repaso de ejemplo generado por el plugin.</sub>
-
-### Cómo generarlo
-
-Elige la forma que prefieras:
-
-- Escribe **`/estudio pdf`**.
-- En el panel, pestaña **📚 Cuaderno**, pulsa **📄 PDF** (tecla `d`).
-- O pídeselo a Claude con tus palabras: *«hazme el PDF de repaso de biología»*.
-
-El PDF se guarda en `salidas/repaso-<cuaderno>-<fecha>.pdf` y se abre solo. Puedes generarlo las veces que quieras: cada día crea uno nuevo, y si lo repites el mismo día se sobrescribe con lo más reciente.
-
-### Qué incluye
+Se guarda en `salidas/repaso-<cuaderno>-<fecha>.pdf` y se abre solo.
 
 | Sección | Contenido |
 |---|---|
-| **Portada** | Nombre del cuaderno y fecha; racha, pomodoros, horas de enfoque, % de aciertos y tarjetas para hoy; gráficos de la semana y de las últimas 16 semanas; etapas de las tarjetas; tus fuentes; índice con enlaces. |
-| **🃏 Tarjetas** | Todas, con su respuesta, su fuente y la fecha del próximo repaso, agrupadas en *para repasar hoy*, *aprendiendo* y *maduras*. Numeradas igual que las tarjetas para recortar. |
-| **Documentos** | Cada guía, quiz, FAQ o guion de audio de `salidas/`, maquetado: títulos, listas, tablas, citas y código. |
-| **✂️ Tarjetas para recortar** | 10 tarjetas por hoja A4, con la pregunta en el anverso y la respuesta (con su fuente) en el reverso. |
+| **Portada** | Racha, pomodoros, horas, aciertos, tarjetas de hoy, gráficos, etapas, fuentes e índice con enlaces |
+| **Tarjetas** | Todas, con su respuesta, su fuente y su próximo repaso, agrupadas en *hoy*, *aprendiendo* y *maduras* |
+| **Documentos** | Las guías, quizzes, mapas y simulacros de `salidas/`, maquetados |
+| **Para recortar** | 10 tarjetas por hoja A4: la pregunta en el anverso y la respuesta en el reverso |
 
-> 💡 **Consejo:** genera antes la guía (`/estudio:guia`) y un quiz (`/estudio:quiz`); así el PDF los incluye y queda como un dosier de estudio completo.
+**Imprimir las tarjetas para recortar:**
 
-### Imprimir las tarjetas para recortar
+1. Imprime **a doble cara, girando por el borde largo, al 100 %**. Así cada respuesta queda detrás de su pregunta.
+2. Recorta por las líneas discontinuas.
 
-1. Imprime **a doble cara, girando por el borde largo**, al **100 %** (sin «ajustar a la página»).
-2. Cada hoja de preguntas va seguida de su hoja de respuestas, en espejo, para que cada respuesta quede justo detrás de su pregunta.
-3. Recorta por las líneas discontinuas. El número de la esquina te ayuda a emparejarlas.
+> 💡 Genera antes `/estudio:guia` y `/estudio:quiz` para que el PDF sea un dosier completo.
 
-### Requisitos
+</details>
 
-- Usa **Chrome, Chromium, Edge o Brave** sin abrir ventana. Si tienes alguno instalado, no hay que configurar nada.
-- Si no hay ninguno, el plugin deja el **`.html`** junto al PDF y lo abre: usa *Imprimir → Guardar como PDF* con **«Gráficos de fondo»** activado.
-- Todo se genera en tu equipo; nada se sube a internet.
+## 📖 Referencia
 
-## 🔊 Sonido y voz
+<details>
+<summary><b>Comandos</b></summary>
 
-- **macOS**: funciona sin instalar nada.
-- **Linux**: la alarma usa `paplay` (PulseAudio/PipeWire) y la voz `spd-say`:
+| Comando | Qué hace |
+|---|---|
+| `/estudio [pomodoro\|repaso\|cuaderno\|mapa\|stats\|logros]` | Abre el panel en esa pestaña |
+| `/estudio pdf` | PDF de repaso del cuaderno activo |
+| `/estudio resumen` | Tu sesión y tu día, con consejos del coach; actualiza el diario |
+| `/estudio informe [pasada]` | Imagen de la semana actual o de la pasada, en `~/estudio/informes/` |
+| `/estudio callar` · `/estudio ayuda` | Detiene la voz · muestra la ayuda |
+| `/pomodoro` | Inicia el pomodoro, o dice cuánto queda si ya está en marcha |
+| `/pomodoro 50 [tarea]` · `/pomodoro tarea <texto>` | Un enfoque de 50 min con su tarea · cambia la tarea |
+| `/pomodoro pausar\|reanudar\|saltar\|parar\|estado` | Controla el temporizador (también vale `/promodoro`) |
+| `/pomodoro probar` | Prueba la alarma y los avisos |
+| `/cuaderno` · `/cuaderno <nombre>` | Lista los cuadernos · crea o activa uno |
+| `/repasar` | Repasa las tarjetas pendientes |
+| `/examen <fecha> [título]` · `/examen` · `/examen meta <n>` · `/examen borrar` | Fija el plan de examen · muestra su estado · cambia la meta diaria · lo quita |
+| `/anki` · `/anki exportar` · `/anki importar <archivo>` | Resumen de tus tarjetas · exporta a Anki · importa de Anki (texto con tabuladores), CSV o líneas `frente :: reverso` |
+
+</details>
+
+<details>
+<summary><b>Skills (Claude trabaja con tus fuentes)</b></summary>
+
+| Skill | Qué hace |
+|---|---|
+| `/estudio:preguntar <pregunta>` | Responde con citas de tus fuentes; sin pregunta, resume el cuaderno |
+| `/estudio:resumir [archivos]` | Resume cada fuente (por defecto, las nuevas) en `salidas/resumen-*.md` y crea sus tarjetas |
+| `/estudio:tarjetas [n] [tema]` | Crea tarjetas de una idea cada una, con su fuente |
+| `/estudio:guia [tema]` | Guía completa con resumen, ideas clave, glosario y FAQ |
+| `/estudio:mapa [tema]` | Mapa mental en `salidas/mapa-*.md` |
+| `/estudio:quiz [n] [tema]` | Quiz de opción múltiple, una pregunta a la vez |
+| `/estudio:simulacro [n] [min] [tema]` | Examen cronometrado con nota sobre 10 |
+| `/estudio:audio [min] [tema]` | Resumen tipo podcast leído en voz alta |
+
+</details>
+
+<details>
+<summary><b>Teclas del panel</b></summary>
+
+| Pestaña | Teclas |
+|---|---|
+| 🍅 Pomodoro | `i` iniciar · `p` pausar/reanudar · `s` saltar fase · `x` parar · `t` cambiar la tarea |
+| 🃏 Repaso | `m` mostrar respuesta · `1`–`4` calificar · `w` modo escribir · `e` editar · `b` borrar · `u` deshacer |
+| 📚 Cuaderno | `t` tarjetas · `g` guía · `q` quiz · `x` simulacro · `a` audio · `d` PDF · `e` fijar examen · `r` recargar · `n` resumir fuentes nuevas · `i` ignorarlas |
+| 🧠 Mapa | `n` nuevo mapa mental |
+| 📊 Stats | `g` general · `r` repaso · `h` hábitos · `i` informe semanal · `c` consejo del coach |
+
+</details>
+
+<details>
+<summary><b>Configuración</b> (<code>/config</code> → <b>estudio</b>)</summary>
+
+| Opción | Por defecto |
+|---|---|
+| Idioma / Language | `auto` (el del sistema) · `es` · `en` |
+| Carpeta de estudio | `~/estudio` |
+| Minutos de enfoque / descanso / descanso largo | 25 / 5 / 15 |
+| Alarma al terminar · toques · volumen | sí · 3 · 80 |
+| Iniciar solo el siguiente pomodoro | no |
+| Tarjetas nuevas por día | 20 |
+| Retención deseada (FSRS) | 90 % |
+| Recordar las tarjetas pendientes al abrir sesión | sí |
+
+</details>
+
+### 🌐 Idioma / Language
+
+El plugin funciona entero en **español o inglés**, y las skills responden y escriben sus archivos en el idioma elegido:
+
+- el panel y las respuestas de los comandos;
+- los avisos y la voz;
+- los logros;
+- el PDF y el informe.
+
+- **`auto`** (por defecto): usa `LANGUAGE`, `LC_ALL` o `LANG`. Si empiezan por `es`, español; si no, inglés.
+- **`es`** o **`en`**: fija el idioma.
+
+Los comandos se llaman igual en los dos idiomas y entienden argumentos en inglés:
+
+- `/pomodoro start|pause|resume|skip|stop|status|task`
+- `/estudio review|notebook|map|achievements|summary|report [last]|mute|help`
+- `/anki export|import`
+- `/examen goal|clear`, con fechas como «November 15» o «in 20 days»
+
+<details>
+<summary><b>Dónde se guardan tus datos</b></summary>
+
+```
+~/estudio/
+├── biologia/
+│   ├── fuentes/            ← tus materiales: pdf, md, txt, html, docx, imágenes…
+│   ├── salidas/            ← guías, quizzes, mapas, resúmenes, PDF de repaso, exportaciones de Anki
+│   ├── tarjetas.json       ← tus tarjetas (se pueden editar a mano)
+│   ├── tarjetas.bak.json   ← la versión anterior
+│   ├── plan.json           ← tu plan de examen
+│   └── .respaldos/         ← una copia por día de la semana
+├── diario/2026-10-20.md    ← el diario de cada día
+└── informes/semana-2026-10-19.png
+```
+
+Para añadir una tarjeta a mano basta con `{"frente": "...", "reverso": "..."}`; el plugin completa el resto.
+
+</details>
+
+## 🔧 Requisitos
+
+- **[Claude Code](https://docs.claude.com/en/docs/claude-code)**, probado con la versión 2.1.304.
+- **Sonido y voz:** en macOS funcionan sin instalar nada. En Linux, la alarma usa `paplay` y la voz `spd-say`:
   ```bash
-  sudo apt install speech-dispatcher espeak-ng   # Debian/Ubuntu
+  sudo apt install speech-dispatcher espeak-ng
   ```
+- **PDF e informe:** necesitan Chrome, Chromium, Edge o Brave (se usan sin abrir ventana). Si no tienes ninguno, el plugin deja un `.html` para que lo imprimas tú como PDF, con *gráficos de fondo* activado.
 
-## 🛠️ Desarrollo
+## ❓ Problemas frecuentes
+
+| Síntoma | Solución |
+|---|---|
+| El Pomodoro no suena ni avisa | Ejecuta `/pomodoro probar`: te dice qué funciona (sonido, aviso, temporizador). En Linux, instala `paplay` (PulseAudio o PipeWire). |
+| No veo el panel | Ejecuta `/estudio`. En VS Code se abre al lado del chat. |
+| Claude no encuentra mis apuntes | Comprueba con `/cuaderno` que el cuaderno activo es el correcto y que tus archivos están en su carpeta `fuentes/`. |
+| La interfaz sale en otro idioma | Ve a `/config` → **estudio** → *Idioma / Language* y elige `es` o `en`. |
+
+## 🔨 Desarrollo
 
 ```bash
 git clone https://github.com/YuthramysI/claude-study-kit && cd claude-study-kit
-claude --plugin-dir .         # ejecuta Claude Code con el plugin cargado desde esta carpeta
+claude --plugin-dir .         # Claude Code con el plugin cargado desde esta carpeta
 claude plugin validate .      # manifiesto y hooks
-claude plugin test .          # 100 tests: FSRS, Pomodoro, sesiones, logros, plan, simulacro, informe, PDF, mapas, panel
+claude plugin test .          # 100 tests
 ```
+
+<details>
+<summary><b>Estructura del código</b></summary>
 
 | Archivo | Contenido |
 |---|---|
 | `hooks/register.tsx` | Comandos, herramientas y arranque |
-| `hooks/panel.tsx` | El panel y sus 6 pestañas |
-| `hooks/graficos.ts` | Gráficos SVG (anillo, barras, mapa de actividad, etapas) y el reloj grande de la terminal |
-| `hooks/pdf.ts` · `markdown.ts` | El documento del PDF de repaso y el conversor de Markdown |
+| `hooks/panel.tsx` · `graficos.ts` | El panel con sus 6 pestañas y los gráficos SVG |
 | `hooks/acciones.ts` | Pomodoro, cuadernos, tarjetas, estadísticas, PDF, voz |
-| `hooks/srs.ts` · `pomodoro.ts` · `stats.ts` · `anki.ts` · `mapa.ts` | Lógica pura (con tests): FSRS, temporizador, estadísticas, Anki, mapas mentales |
-| `hooks/sesiones.ts` · `logros.ts` · `plan.ts` · `informe.ts` | Sesiones y diario, logros y niveles, plan de examen, informe semanal |
-| `hooks/cuadernos.ts` | Archivos, copias de seguridad y recuperación |
-| `hooks/motor.ts` | Enlace con el motor de Claude Code y estado de sesión |
-| `hooks/i18n.ts` | Idioma de la interfaz: `L('español', 'English')` y la detección |
+| `hooks/srs.ts` · `pomodoro.ts` · `stats.ts` · `anki.ts` · `mapa.ts` | Lógica pura (con tests): FSRS, temporizador, estadísticas, Anki, mapas |
+| `hooks/sesiones.ts` · `logros.ts` · `plan.ts` · `informe.ts` · `pdf.ts` | Sesiones y diario, logros, plan de examen, informe semanal, PDF |
+| `hooks/cuadernos.ts` · `motor.ts` · `i18n.ts` | Archivos y copias, enlace con el motor, idioma (`L('español', 'English')`) |
 | `skills/*/SKILL.md` | preguntar, resumir, tarjetas, guía, mapa, quiz, simulacro, audio |
 
-Las contribuciones son bienvenidas: lee [CONTRIBUTING.md](CONTRIBUTING.md).
+</details>
+
+Las contribuciones son bienvenidas: lee [CONTRIBUTING.md](CONTRIBUTING.md) y [CHANGELOG.md](CHANGELOG.md).
 
 ## 📄 Licencia
 
-[MIT](LICENSE)
+[MIT](LICENSE) © Yuthramys Ibarra

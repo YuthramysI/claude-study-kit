@@ -4,6 +4,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 
 ## [Sin publicar]
 
+### Documentación
+- README nuevo en español e inglés, más limpio: demo en video (`docs/demo.gif` y `docs/demo.mp4`, 65 s), guía de uso paso a paso, tabla de todo lo que hace, referencia plegable (comandos, skills, teclas, configuración, idioma, datos), requisitos y problemas frecuentes.
+
 ## [1.4.0] - 2026-10-20
 
 ### Añadido
