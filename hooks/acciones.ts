@@ -543,7 +543,13 @@ export function lineaSimulacro(s: Simulacro, ahora: number): string | undefined 
 async function latidoSimulacro(h: Host, cfg: Config, ahora: number) {
   const s = await h.st.simulacro.leer()
   if (s === null || ahora < s.terminaEn || s.avisado) return
-  const marcado = await h.st.simulacro.cambiar(x => (x === null ? x : { ...x, avisado: true }))
+  // se comprueba y se marca en el mismo cambio: dos latidos solapados no avisan dos veces
+  let toca = false
+  const marcado = await h.st.simulacro.cambiar(x => {
+    toca = x !== null && !x.avisado && ahora >= x.terminaEn
+    return toca && x !== null ? { ...x, avisado: true } : x
+  })
+  if (!toca) return
   await h.storeSet(CLAVE_SIMULACRO, marcado)
   const aviso = L('⏰ ¡Tiempo del simulacro! Termina la pregunta en curso y pide la corrección.', '⏰ Mock exam time is up! Finish the current question and ask for grading.')
   h.toast(aviso, 10_000)
@@ -907,7 +913,7 @@ export function interpretarVeredicto(texto: string): Veredicto | undefined {
 }
 
 const palabras = (s: string) =>
-  new Set(s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9ñ]+/).filter(p => p.length > 2))
+  new Set(s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^\p{L}\p{M}\p{N}]+/u).filter(p => p.length > 2))
 
 /** Sin modelo: cuántas palabras de la respuesta correcta aparecen en la tuya. */
 export function corregirLocal(correcta: string, escrita: string): Veredicto {
@@ -1037,7 +1043,7 @@ export async function generarPdf(h: Host, cfg: Config, abrir = true): Promise<st
     `${tarjetas.length > 0 ? ` · ${Math.ceil(tarjetas.length / 10) * 2} ${L('hojas para recortar', 'cut-out sheets')}` : ''}` +
     `${omitidos.length > 0 ? ` (${L('omitidos por grandes', 'skipped, too large')}: ${omitidos.join(', ')})` : ''}`
 
-  const r = await conNavegador(h, rutaHtml, rutaPdf, ['--no-pdf-header-footer', '--print-to-pdf-no-header', `--print-to-pdf=${rutaPdf}`])
+  const r = await conNavegador(h, cfg, rutaHtml, rutaPdf, ['--no-pdf-header-footer', '--print-to-pdf-no-header', `--print-to-pdf=${rutaPdf}`])
   if (r.ok) {
     await contar(h, 'pdfs', { sumar: 1 }).catch(() => undefined)
     if (abrir) abrirArchivo(h, rutaPdf)
@@ -1052,13 +1058,15 @@ export async function generarPdf(h: Host, cfg: Config, abrir = true): Promise<st
  * Convierte un HTML con el primer navegador que funcione (Chrome, Chromium,
  * Edge o Brave sin ventana): a PDF o a PNG, según los `extra` que reciba.
  */
-async function conNavegador(h: Host, html: string, salida: string, extra: readonly string[]): Promise<{ ok: true } | { ok: false; motivo: string }> {
+async function conNavegador(h: Host, cfg: Config, html: string, salida: string, extra: readonly string[]): Promise<{ ok: true } | { ok: false; motivo: string }> {
   const url = `file://${encodeURI(html)}`
+  // un perfil propio en la carpeta de estudio: ni el del usuario ni uno compartido en /tmp
+  const perfil = `${cuadernos.raiz(h, cfg.carpeta)}/.navegador`
   const fallos: string[] = []
   for (const nav of NAVEGADORES) {
     const r = await h
       .run([nav, '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
-        '--user-data-dir=/tmp/estudio-pdf-navegador', '--hide-scrollbars', '--virtual-time-budget=3000', ...extra, url], { timeoutMs: 120_000 })
+        `--user-data-dir=${perfil}`, '--hide-scrollbars', '--virtual-time-budget=3000', ...extra, url], { timeoutMs: 120_000 })
       .catch(() => undefined)
     if (r === undefined) continue // no está instalado
     if (r.exitCode === 0 && (await h.fs.exists(salida))) return { ok: true }
@@ -1082,7 +1090,7 @@ export async function generarInforme(h: Host, cfg: Config, pasada = false, abrir
   const carpeta = `${cuadernos.raiz(h, cfg.carpeta)}/informes`
   const base = `${carpeta}/semana-${lunes}`
   await h.fs.write(`${base}.html`, informe.htmlInforme({ lunes, hoy, stats: await h.st.stats.leer(), logros: await h.st.logros.leer() }))
-  const r = await conNavegador(h, `${base}.html`, `${base}.png`, [`--window-size=${informe.ANCHO},${informe.ALTO}`, `--screenshot=${base}.png`])
+  const r = await conNavegador(h, cfg, `${base}.html`, `${base}.png`, [`--window-size=${informe.ANCHO},${informe.ALTO}`, `--screenshot=${base}.png`])
   await h.storeSet(CLAVE_INFORME, lunes)
   if (!r.ok) {
     if (abrir) abrirArchivo(h, `${base}.html`)
@@ -1144,7 +1152,7 @@ export function hablar(h: Host, texto: string) {
     void (async () => {
       for (const t of trozos(texto)) {
         if (mio !== turnoVoz) return
-        const r = await h.run(['spd-say', '-w', '-l', L('es', 'en'), t], { timeoutMs: 600_000 }).catch(() => undefined)
+        const r = await h.run(['spd-say', '-w', '-l', L('es', 'en'), '--', t], { timeoutMs: 600_000 }).catch(() => undefined)
         if (r?.exitCode === 0) continue
         const ok = await h.speak(t).then(() => true, () => false)
         if (!ok) {

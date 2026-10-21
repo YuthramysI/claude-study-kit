@@ -7,7 +7,17 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 ### Añadido
 - **Cuaderno de ejemplo**: `/cuaderno demo` (también `ejemplo` o `example`) crea un cuaderno con dos fuentes (la célula y la fotosíntesis), 10 tarjetas con su cita y un mapa mental, en el idioma de la interfaz, para probarlo todo sin preparar nada. Si ya existe, solo lo activa. La ayuda, `/cuaderno` sin cuadernos y la pestaña Cuaderno vacía lo sugieren.
 
+### Corregido
+- Las carpetas `diario/` e `informes/` ya no aparecen como cuadernos en `/cuaderno`, y no se puede crear un cuaderno con esos nombres.
+- Las tarjetas con el frente en otro alfabeto (griego, cirílico, chino…) ya no se descartan como «repetidas», y «¿Qué es α?» y «¿Qué es β?» ya no se toman por la misma tarjeta. La corrección sin conexión del modo escribir también compara palabras en cualquier alfabeto.
+- Una entidad HTML fuera de rango en un archivo de Anki ya no aborta la importación entera.
+- Un texto leído en voz alta que empieza por «-» ya no se toma por una opción de `spd-say`.
+- El aviso de fin de simulacro sale una sola vez aunque dos latidos se solapen.
+- El navegador que genera el PDF y el informe usa un perfil propio en `~/estudio/.navegador` en vez de una carpeta compartida en `/tmp`.
+- Los tiempos ya no salen como «1 h 60 min», y la pestaña Repaso muestra la próxima fecha en formato largo.
+
 ### Documentación
+- La nota de privacidad del README aclara qué datos pasan por el modelo (coach y modo escribir).
 - Demo en inglés (`docs/demo-en.gif` y `docs/demo-en.mp4`) y capturas en inglés para el README en inglés (`docs/*-en.png`).
 - Sección «Pruébalo en 30 segundos» en los dos README.
 - README nuevo en español e inglés, más limpio: demo en video (`docs/demo.gif` y `docs/demo.mp4`, 65 s), guía de uso paso a paso, tabla de todo lo que hace, referencia plegable (comandos, skills, teclas, configuración, idioma, datos), requisitos y problemas frecuentes.

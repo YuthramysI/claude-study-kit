@@ -32,8 +32,9 @@ export function sinHtml(s: string): string {
     .replace(/<\/(div|p|li)>/gi, ' ')
     .replace(/<[^>]+>/g, '')
     .replace(/&(#\d+|#x[\da-f]+|\w+);/gi, (m, e: string) => {
-      if (e.startsWith('#x') || e.startsWith('#X')) return String.fromCodePoint(parseInt(e.slice(2), 16))
-      if (e.startsWith('#')) return String.fromCodePoint(Number(e.slice(1)))
+      const codigo = e.startsWith('#x') || e.startsWith('#X') ? parseInt(e.slice(2), 16) : e.startsWith('#') ? Number(e.slice(1)) : undefined
+      // un código fuera de Unicode (exportación dañada) se deja tal cual en vez de abortar la importación
+      if (codigo !== undefined) return codigo <= 0x10ffff ? String.fromCodePoint(codigo) : m
       return ENTIDADES[e.toLowerCase()] ?? m
     })
     .replace(/\s+/g, ' ')

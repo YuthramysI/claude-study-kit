@@ -7,7 +7,7 @@ Pomodoro · spaced-repetition flashcards (FSRS) · notebooks that answer from yo
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
-[![Tests](https://img.shields.io/badge/tests-103_passing-brightgreen.svg)](#-development)
+[![Tests](https://img.shields.io/badge/tests-109_passing-brightgreen.svg)](#-development)
 [![Languages](https://img.shields.io/badge/language-English_·_español-blue.svg)](#-language)
 
 **English** · [Español](README.md)
@@ -158,7 +158,7 @@ Claude answers **only from your sources** and cites every fact with its file and
 | 🌐 **English / español** | The whole interface in your language, including Claude's replies. |
 | 🛡️ **Backups** | A week of card backups, and recovery if the file gets corrupted. |
 
-Everything stays on your machine: the plugin makes no network calls, and Claude only reads your sources when you ask it to.
+**Privacy:** your notebooks, cards and stats are stored as files on your machine, and the plugin makes no network calls of its own. Claude only reads your sources when you ask it to. The coach (`/estudio summary`) and type-mode grading do send your study data or the card to the model, through your Claude Code session, like any other message.
 
 <details>
 <summary><b>📊 See the charts, the weekly report, the mind map and the PDF</b></summary>
@@ -347,7 +347,7 @@ To add a card by hand, `{"frente": "...", "reverso": "..."}` is enough (*frente*
 git clone https://github.com/YuthramysI/claude-study-kit && cd claude-study-kit
 claude --plugin-dir .         # Claude Code with this folder's plugin loaded
 claude plugin validate .      # manifest and hooks
-claude plugin test .          # 103 tests
+claude plugin test .          # 109 tests
 ```
 
 Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) (in Spanish) and [CHANGELOG.md](CHANGELOG.md).

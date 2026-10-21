@@ -206,7 +206,7 @@ export function describirIntervalo(dias: number): string {
 }
 
 const normalizar = (s: string) =>
-  s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\W+/g, ' ').trim()
+  s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\p{L}\p{M}\p{N}\p{S}]+/gu, ' ').trim()
 
 /** Añade tarjetas nuevas saltando las que repiten un frente ya existente. */
 export function fusionar(

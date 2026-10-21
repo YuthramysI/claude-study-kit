@@ -125,8 +125,10 @@ export function porcentaje(parte: number, total: number): string {
 }
 
 export function horas(minutos: number): string {
-  const h = Math.floor(minutos / 60)
-  const m = Math.round(minutos % 60)
+  // se redondea antes de partir: 119,6 min son «2 h 00 min», no «1 h 60 min»
+  const total = Math.round(minutos)
+  const h = Math.floor(total / 60)
+  const m = total % 60
   return h === 0 ? `${m} min` : `${h} h ${String(m).padStart(2, '0')} min`
 }
 

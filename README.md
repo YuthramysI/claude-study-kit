@@ -7,7 +7,7 @@ Pomodoro · tarjetas con repaso espaciado (FSRS) · cuadernos que responden con 
 
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-green.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
-[![Tests](https://img.shields.io/badge/tests-103_pasan-brightgreen.svg)](#-desarrollo)
+[![Tests](https://img.shields.io/badge/tests-109_pasan-brightgreen.svg)](#-desarrollo)
 [![Idiomas](https://img.shields.io/badge/idioma-español_·_English-blue.svg)](#-idioma--language)
 
 **Español** · [English](README.en.md)
@@ -156,7 +156,7 @@ Claude responde **solo con tus fuentes** y cita cada dato con su archivo y pági
 | 🌐 **Español / English** | Toda la interfaz en tu idioma, incluidas las respuestas de Claude. |
 | 🛡️ **Copias de seguridad** | Una semana de copias de tus tarjetas, y recuperación si el archivo se daña. |
 
-Todo se queda en tu equipo: el plugin no usa la red, y Claude solo lee tus fuentes cuando se lo pides.
+**Privacidad:** tus cuadernos, tarjetas y estadísticas se guardan en archivos de tu equipo, y el plugin no hace llamadas de red propias. Claude solo lee tus fuentes cuando se lo pides. El coach (`/estudio resumen`) y la corrección del modo escribir sí envían tus datos de estudio o la tarjeta al modelo, a través de tu sesión de Claude Code, como cualquier otro mensaje.
 
 <details>
 <summary><b>📊 Ver los gráficos, el informe semanal, el mapa y el PDF</b></summary>
@@ -363,7 +363,7 @@ Para añadir una tarjeta a mano basta con `{"frente": "...", "reverso": "..."}`;
 git clone https://github.com/YuthramysI/claude-study-kit && cd claude-study-kit
 claude --plugin-dir .         # Claude Code con el plugin cargado desde esta carpeta
 claude plugin validate .      # manifiesto y hooks
-claude plugin test .          # 103 tests
+claude plugin test .          # 109 tests
 ```
 
 <details>

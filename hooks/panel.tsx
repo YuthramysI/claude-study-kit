@@ -546,8 +546,8 @@ export function registrarPanel(on: On, cfg: Config, home: () => string) {
               <Text dimColor>
                 {vacio
                   ? L('Pide a Claude que las cree con /estudio:tarjetas', 'Ask Claude to make some with /estudio:tarjetas')
-                  : L(`${hechas} repasadas hoy${proxima !== undefined ? ` · próxima el ${proxima}` : ''}${espera > 0 ? ` · ${espera} nuevas esperan a mañana` : ''}`,
-                    `${hechas} reviewed today${proxima !== undefined ? ` · next on ${proxima}` : ''}${espera > 0 ? ` · ${espera} new waiting for tomorrow` : ''}`)}
+                  : L(`${hechas} repasadas hoy${proxima !== undefined ? ` · la próxima, el ${fechaLarga(proxima)}` : ''}${espera > 0 ? ` · ${espera} nuevas esperan a mañana` : ''}`,
+                    `${hechas} reviewed today${proxima !== undefined ? ` · next on ${fechaLarga(proxima)}` : ''}${espera > 0 ? ` · ${espera} new waiting for tomorrow` : ''}`)}
               </Text>
             </Box>
             {botonDeshacer}

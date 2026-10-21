@@ -417,7 +417,7 @@ async function comandoCuaderno($: EngineInterface, args: string, cfg: Config, ho
   if (arg === '') return { text: await acc.textoCuadernos(h, cfg) }
   if (ALIAS_EJEMPLO.includes(arg.toLowerCase())) return { text: await acc.crearEjemplo(h, cfg) }
   const nombre = cuadernos.nombreValido(arg)
-  if (nombre === undefined) return { text: L('Nombre no válido: usa letras, números, espacios, - o _ (máximo 64).', 'Invalid name: use letters, digits, spaces, - or _ (64 max).') }
+  if (nombre === undefined) return { text: L(`Nombre no válido: usa letras, números, espacios, - o _ (máximo 64); «${cuadernos.RESERVADAS.join('» y «')}» están reservados.`, `Invalid name: use letters, digits, spaces, - or _ (64 max); «${cuadernos.RESERVADAS.join('» and «')}» are reserved.`) }
   try {
     const info = await acc.abrirCuaderno(h, cfg, nombre)
     if (info === null) return { text: L(`No pude abrir «${nombre}».`, `Could not open «${nombre}».`) }

@@ -5,6 +5,9 @@ import type { Host } from './host'
 import { L } from './i18n'
 
 const CLAVE_ACTIVO = 'cuadernoActivo'
+/** Carpetas que el propio plugin crea en la raíz y que no son cuadernos. */
+export const RESERVADAS = ['diario', 'informes']
+
 const EXTENSIONES = /\.(pdf|md|markdown|txt|text|html?|csv|json|tex|rst|org|docx?|pptx?|png|jpe?g|webp)$/i
 
 export function raiz(h: Host, carpeta: string): string {
@@ -16,7 +19,7 @@ export function raiz(h: Host, carpeta: string): string {
 /** Nombre válido de cuaderno: letras, números, espacios, `-` y `_`. */
 export function nombreValido(nombre: string): string | undefined {
   const n = nombre.trim()
-  if (n === '' || n.length > 64 || n.startsWith('.')) return undefined
+  if (n === '' || n.length > 64 || n.startsWith('.') || RESERVADAS.includes(n.toLowerCase())) return undefined
   return /^[\p{L}\p{N} _-]+$/u.test(n) ? n : undefined
 }
 
@@ -24,7 +27,7 @@ export async function listar(h: Host, base: string): Promise<string[]> {
   if (!(await h.fs.exists(base))) return []
   const entradas = await h.fs.list(base)
   return entradas
-    .filter(e => e.kind === 'dir' && !e.name.startsWith('.'))
+    .filter(e => e.kind === 'dir' && !e.name.startsWith('.') && !RESERVADAS.includes(e.name.toLowerCase()))
     .map(e => e.name)
     .sort((a, b) => a.localeCompare(b))
 }
