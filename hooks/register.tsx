@@ -8,6 +8,7 @@ import type { Config } from './estado'
 import type { Host } from './host'
 import { hostOf } from './motor'
 import { registrarPanel } from './panel'
+import { ALIAS_EJEMPLO } from './ejemplo'
 import { fecha, pendientes } from './srs'
 import { detectarIdioma, fijarIdioma, idioma, L } from './i18n'
 
@@ -18,6 +19,7 @@ const ayuda = () => L(`Comandos de estudio:
   /estudio informe [pasada]                          tarjeta PNG de tu semana para compartir
   /pomodoro [iniciar [min] [tarea]|tarea <texto>|pausar|reanudar|saltar|parar|estado]
   /cuaderno [nombre]                                 crear o elegir cuaderno
+  /cuaderno demo                                     cuaderno de ejemplo para probarlo todo
   /repasar                                           repasar tarjetas pendientes
   /anki [exportar|importar <archivo>]                tarjetas: resumen, exportar a Anki, importar
   /examen [<fecha> [título]|meta <n>|borrar]         plan de examen: cuenta atrás y meta diaria
@@ -29,6 +31,7 @@ Con Claude: /estudio:preguntar · /estudio:resumir · /estudio:tarjetas · /estu
   /estudio report [last]                             PNG card of your week to share
   /pomodoro [start [min] [task]|task <text>|pause|resume|skip|stop|status]
   /cuaderno [name]                                   create or pick a notebook
+  /cuaderno demo                                     sample notebook to try everything
   /repasar                                           review the cards due today
   /anki [export|import <file>]                       cards: summary, export to Anki, import
   /examen [<date> [title]|goal <n>|clear]            exam plan: countdown and daily goal
@@ -412,6 +415,7 @@ async function comandoCuaderno($: EngineInterface, args: string, cfg: Config, ho
   const h = hostOf($, home)
   const arg = args.trim()
   if (arg === '') return { text: await acc.textoCuadernos(h, cfg) }
+  if (ALIAS_EJEMPLO.includes(arg.toLowerCase())) return { text: await acc.crearEjemplo(h, cfg) }
   const nombre = cuadernos.nombreValido(arg)
   if (nombre === undefined) return { text: L('Nombre no válido: usa letras, números, espacios, - o _ (máximo 64).', 'Invalid name: use letters, digits, spaces, - or _ (64 max).') }
   try {

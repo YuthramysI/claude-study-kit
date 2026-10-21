@@ -7,7 +7,7 @@ Pomodoro · tarjetas con repaso espaciado (FSRS) · cuadernos que responden con 
 
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-green.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
-[![Tests](https://img.shields.io/badge/tests-100_pasan-brightgreen.svg)](#-desarrollo)
+[![Tests](https://img.shields.io/badge/tests-103_pasan-brightgreen.svg)](#-desarrollo)
 [![Idiomas](https://img.shields.io/badge/idioma-español_·_English-blue.svg)](#-idioma--language)
 
 **Español** · [English](README.en.md)
@@ -22,7 +22,7 @@ Pomodoro · tarjetas con repaso espaciado (FSRS) · cuadernos que responden con 
 
 ## Contenido
 
-- [Instalación](#-instalación)
+- [Instalación](#-instalación) · [Pruébalo en 30 segundos](#-pruébalo-en-30-segundos)
 - [Cómo se usa, paso a paso](#-cómo-se-usa-paso-a-paso)
 - [Todo lo que hace](#-todo-lo-que-hace)
 - [Referencia](#-referencia): comandos, skills, teclas, configuración, idioma y datos
@@ -42,6 +42,23 @@ Responde `y` para añadir el marketplace y elige el ámbito de usuario. También
 - **En la app de escritorio:** **+** junto al cuadro de texto → **Plugins** → **Add marketplace** `YuthramysI/claude-study-kit` → **Add plugin**.
 
 Escribe `/estudio ayuda` para ver todos los comandos.
+
+## ⚡ Pruébalo en 30 segundos
+
+```text
+/cuaderno demo
+```
+
+Se crea un cuaderno de ejemplo ya preparado: dos fuentes (la célula y la fotosíntesis), 10 tarjetas y un mapa mental. Todo funciona desde el primer momento, sin preparar nada:
+
+```text
+/repasar                                           repasa las tarjetas (m muestra la respuesta, 1-4 califica)
+/estudio mapa                                      mira el mapa mental
+/estudio:preguntar ¿Qué produce la mitocondria?    una respuesta citada de las fuentes
+/pomodoro 25 Biología                              una sesión de enfoque en la barra de estado
+```
+
+El ejemplo sale en el idioma de la interfaz. Cuando quieras, crea el tuyo con `/cuaderno <nombre>`. Si vuelves a ejecutar `/cuaderno demo`, nunca se pisa lo que haya dentro.
 
 ## 🧭 Cómo se usa, paso a paso
 
@@ -231,7 +248,7 @@ Se guarda en `salidas/repaso-<cuaderno>-<fecha>.pdf` y se abre solo.
 | `/pomodoro 50 [tarea]` · `/pomodoro tarea <texto>` | Un enfoque de 50 min con su tarea · cambia la tarea |
 | `/pomodoro pausar\|reanudar\|saltar\|parar\|estado` | Controla el temporizador (también vale `/promodoro`) |
 | `/pomodoro probar` | Prueba la alarma y los avisos |
-| `/cuaderno` · `/cuaderno <nombre>` | Lista los cuadernos · crea o activa uno |
+| `/cuaderno` · `/cuaderno <nombre>` · `/cuaderno demo` | Lista los cuadernos · crea o activa uno · crea el cuaderno de ejemplo |
 | `/repasar` | Repasa las tarjetas pendientes |
 | `/examen <fecha> [título]` · `/examen` · `/examen meta <n>` · `/examen borrar` | Fija el plan de examen · muestra su estado · cambia la meta diaria · lo quita |
 | `/anki` · `/anki exportar` · `/anki importar <archivo>` | Resumen de tus tarjetas · exporta a Anki · importa de Anki (texto con tabuladores), CSV o líneas `frente :: reverso` |
@@ -346,7 +363,7 @@ Para añadir una tarjeta a mano basta con `{"frente": "...", "reverso": "..."}`;
 git clone https://github.com/YuthramysI/claude-study-kit && cd claude-study-kit
 claude --plugin-dir .         # Claude Code con el plugin cargado desde esta carpeta
 claude plugin validate .      # manifiesto y hooks
-claude plugin test .          # 100 tests
+claude plugin test .          # 103 tests
 ```
 
 <details>

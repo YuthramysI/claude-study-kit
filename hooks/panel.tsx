@@ -462,7 +462,7 @@ export function registrarPanel(on: On, cfg: Config, home: () => string) {
           {encabezado}
           <Box flexDirection="column" borderStyle="round" borderColor="claude" paddingX={1} paddingY={1}>
             <Text bold>{L('📚 No hay cuaderno activo', '📚 No active notebook')}</Text>
-            <Text dimColor>{L('Crea uno con /cuaderno <nombre> y pon tus PDFs o apuntes en su carpeta fuentes/.', 'Create one with /cuaderno <name> and put your PDFs or notes in its fuentes/ folder.')}</Text>
+            <Text dimColor>{L('Crea uno con /cuaderno <nombre> y pon tus PDFs o apuntes en su carpeta fuentes/, o prueba el ejemplo con /cuaderno demo.', 'Create one with /cuaderno <name> and put your PDFs or notes in its fuentes/ folder, or try the sample with /cuaderno demo.')}</Text>
           </Box>
         </Box>
       )

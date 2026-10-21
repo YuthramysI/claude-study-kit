@@ -7,14 +7,14 @@ Pomodoro · spaced-repetition flashcards (FSRS) · notebooks that answer from yo
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
-[![Tests](https://img.shields.io/badge/tests-100_passing-brightgreen.svg)](#-development)
+[![Tests](https://img.shields.io/badge/tests-103_passing-brightgreen.svg)](#-development)
 [![Languages](https://img.shields.io/badge/language-English_·_español-blue.svg)](#-language)
 
 **English** · [Español](README.md)
 
-<a href="docs/demo.mp4"><img src="docs/demo.gif" alt="One-minute demo: install, notebook, Pomodoro, flashcards, cited answers, mind map, stats, exam plan, weekly report, PDF and language" width="820"></a>
+<a href="docs/demo-en.mp4"><img src="docs/demo-en.gif" alt="One-minute demo: install, sample notebook, Pomodoro, flashcards, cited answers, mind map, stats, exam plan, weekly report, PDF and language" width="820"></a>
 
-<sub>▶️ 1-minute demo (on-screen text in Spanish, ending with the switch to English) · <a href="docs/demo.mp4">watch the HD MP4</a></sub>
+<sub>▶️ 1-minute demo · <a href="docs/demo-en.mp4">watch the HD MP4</a></sub>
 
 </div>
 
@@ -22,7 +22,7 @@ Pomodoro · spaced-repetition flashcards (FSRS) · notebooks that answer from yo
 
 ## Contents
 
-- [Install](#-install)
+- [Install](#-install) · [Try it in 30 seconds](#-try-it-in-30-seconds)
 - [How to use it, step by step](#-how-to-use-it-step-by-step)
 - [Everything it does](#-everything-it-does)
 - [Reference](#-reference): commands, skills, keys, settings, language and data
@@ -44,6 +44,23 @@ Answer `y` to add the marketplace and pick the user scope. You can also install 
 - **In the desktop app:** **+** next to the prompt box → **Plugins** → **Add marketplace** `YuthramysI/claude-study-kit` → **Add plugin**.
 
 Run `/estudio help` to see every command.
+
+## ⚡ Try it in 30 seconds
+
+```text
+/cuaderno demo
+```
+
+This creates a ready-made sample notebook (*cuaderno* = notebook): two sources (the cell and photosynthesis), 10 flashcards and a mind map. Everything works right away, with nothing to prepare:
+
+```text
+/repasar                                                 review the cards (m shows the answer, 1-4 grades)
+/estudio map                                             see the mind map
+/estudio:preguntar What does the mitochondrion produce?  a cited answer from the sources
+/pomodoro 25 Biology                                     a focus session in the status line
+```
+
+The sample's content follows your interface language. When you're done, make your own with `/cuaderno <name>`. Running `/cuaderno demo` again never overwrites what's inside.
 
 ## 🧭 How to use it, step by step
 
@@ -148,15 +165,15 @@ Everything stays on your machine: the plugin makes no network calls, and Claude 
 
 <br>
 
-![Plugin charts: level, exam plan, review forecast, accuracy, habits and time per topic](docs/estadisticas.png)
+![Plugin charts: level, exam plan, review forecast, accuracy, habits and time per topic](docs/estadisticas-en.png)
 
-<img src="docs/informe-en.png" alt="Weekly report in English: focus hours, pomodoros, streak, cards, accuracy, topics and achievements" width="340"> <img src="docs/mapa.png" alt="Mind map drawn by the plugin" width="340">
+<img src="docs/informe-en.png" alt="Weekly report in English: focus hours, pomodoros, streak, cards, accuracy, topics and achievements" width="340"> <img src="docs/mapa-en.png" alt="Mind map drawn by the plugin" width="340">
 
-![Review PDF pages: cover, flashcards, study guide and cut-out cards](docs/pdf-repaso.png)
+![Review PDF pages: cover, flashcards, study guide and cut-out cards](docs/pdf-repaso-en.png)
 
-![The pane in VS Code: Pomodoro ring, weekly pomodoros and activity](docs/graficos.png)
+![The pane in VS Code: Pomodoro ring, weekly pomodoros and activity](docs/graficos-en.png)
 
-<sub>Real plugin screenshots with sample data (some in Spanish).</sub>
+<sub>Real plugin screenshots with sample data.</sub>
 
 </details>
 
@@ -222,7 +239,7 @@ It's saved to `salidas/repaso-<notebook>-<date>.pdf` and opens automatically.
 | `/pomodoro 50 [task]` · `/pomodoro task <text>` | A 50-minute focus with a task · changes the task |
 | `/pomodoro pause\|resume\|skip\|stop\|status` | Timer controls (`/promodoro` works too) |
 | `/pomodoro test` | Tests the alarm and the alerts |
-| `/cuaderno` · `/cuaderno <name>` | Lists notebooks · creates or activates one |
+| `/cuaderno` · `/cuaderno <name>` · `/cuaderno demo` | Lists notebooks · creates or activates one · creates the sample notebook |
 | `/repasar` | Reviews the cards due today |
 | `/examen <date> [title]` · `/examen` · `/examen goal <n>` · `/examen clear` | Sets the exam plan · shows its status · changes the daily goal · removes it |
 | `/anki` · `/anki export` · `/anki import <file>` | Card summary · export to Anki · import from Anki (tab-separated text), CSV or `front :: back` lines |
@@ -330,7 +347,7 @@ To add a card by hand, `{"frente": "...", "reverso": "..."}` is enough (*frente*
 git clone https://github.com/YuthramysI/claude-study-kit && cd claude-study-kit
 claude --plugin-dir .         # Claude Code with this folder's plugin loaded
 claude plugin validate .      # manifest and hooks
-claude plugin test .          # 100 tests
+claude plugin test .          # 103 tests
 ```
 
 Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) (in Spanish) and [CHANGELOG.md](CHANGELOG.md).

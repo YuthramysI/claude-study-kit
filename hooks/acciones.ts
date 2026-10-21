@@ -2,6 +2,7 @@
 import type { DiaStats, PlanExamen, Pomodoro, Sesion, Simulacro, Tarjeta, Veredicto } from '../types'
 import * as anki from './anki'
 import * as cuadernos from './cuadernos'
+import { ejemplo, NOMBRE_EJEMPLO } from './ejemplo'
 import * as informe from './informe'
 import * as lg from './logros'
 import { leerMapa } from './mapa'
@@ -651,6 +652,43 @@ export async function abrirCuaderno(h: Host, cfg: Config, nombre: string) {
   return refrescarCuaderno(h, cfg)
 }
 
+/**
+ * «/cuaderno demo»: crea un cuaderno con dos fuentes, tarjetas y un mapa para probar el plugin
+ * sin preparar nada. Si ya existe, solo lo activa: nunca pisa lo que haya dentro.
+ */
+export async function crearEjemplo(h: Host, cfg: Config): Promise<string> {
+  const base = cuadernos.raiz(h, cfg.carpeta)
+  const ruta = `${base}/${NOMBRE_EJEMPLO}`
+  if (await h.fs.exists(ruta)) {
+    await cuadernos.fijarActivo(h, NOMBRE_EJEMPLO)
+    await refrescarCuaderno(h, cfg)
+    return L(`Cuaderno «${NOMBRE_EJEMPLO}» activo (ya existía, no se ha tocado).`, `Notebook «${NOMBRE_EJEMPLO}» is active (it already existed; nothing was changed).`)
+  }
+  const e = ejemplo()
+  await cuadernos.crear(h, base, NOMBRE_EJEMPLO)
+  for (const [nombre, texto] of Object.entries(e.fuentes)) await h.fs.write(`${ruta}/fuentes/${nombre}`, texto)
+  await h.fs.write(`${ruta}/salidas/mapa.md`, e.mapa)
+  const ahora = await h.now()
+  await cuadernos.guardarTarjetas(h, ruta, fusionar([], e.tarjetas, ahora).tarjetas, ahora)
+  // las fuentes ya tienen tarjetas: no se avisan como nuevas
+  await cuadernos.marcarVistas(h, ruta, Object.keys(e.fuentes))
+  await cuadernos.fijarActivo(h, NOMBRE_EJEMPLO)
+  await refrescarCuaderno(h, cfg)
+  const fuentes = Object.keys(e.fuentes).join(', ')
+  return L(
+    `📚 Cuaderno de ejemplo «${NOMBRE_EJEMPLO}» listo: ${Object.keys(e.fuentes).length} fuentes (${fuentes}), ${e.tarjetas.length} tarjetas y un mapa mental.\n` +
+      `Pruébalo:\n  /repasar                         repasa las tarjetas (m muestra la respuesta, 1-4 califica)\n` +
+      `  /estudio mapa                    mira el mapa mental\n  /estudio:preguntar ¿Qué produce la mitocondria?\n` +
+      `  /pomodoro 25 Biología            estudia con el temporizador\n` +
+      `Carpeta: ${ruta}. Cuando quieras, crea el tuyo con /cuaderno <nombre>.`,
+    `📚 Sample notebook «${NOMBRE_EJEMPLO}» ready: ${Object.keys(e.fuentes).length} sources (${fuentes}), ${e.tarjetas.length} cards and a mind map.\n` +
+      `Try it:\n  /repasar                         review the cards (m shows the answer, 1-4 grades)\n` +
+      `  /estudio map                     see the mind map\n  /estudio:preguntar What does the mitochondrion produce?\n` +
+      `  /pomodoro 25 Biology             study with the timer\n` +
+      `Folder: ${ruta}. Whenever you like, make your own with /cuaderno <name>.`,
+  )
+}
+
 /** Vuelve a leer el cuaderno activo del disco (fuentes y tarjetas). */
 export async function refrescarCuaderno(h: Host, cfg: Config) {
   const nombre = await cuadernos.activo(h)
@@ -675,7 +713,7 @@ export async function textoCuadernos(h: Host, cfg: Config): Promise<string> {
   const base = cuadernos.raiz(h, cfg.carpeta)
   const lista = await cuadernos.listar(h, base)
   const activo = await cuadernos.activo(h)
-  if (lista.length === 0) return L(`Aún no hay cuadernos en ${base}. Crea uno con /cuaderno <nombre>.`, `No notebooks in ${base} yet. Create one with /cuaderno <name>.`)
+  if (lista.length === 0) return L(`Aún no hay cuadernos en ${base}. Crea uno con /cuaderno <nombre>, o prueba el ejemplo con /cuaderno demo.`, `No notebooks in ${base} yet. Create one with /cuaderno <name>, or try the sample with /cuaderno demo.`)
   const filas = lista.map(n => `${n === activo ? '▶' : ' '} ${n}`).join('\n')
   return L(`Cuadernos en ${base}:\n${filas}\n\nCambia con /cuaderno <nombre>.`, `Notebooks in ${base}:\n${filas}\n\nSwitch with /cuaderno <name>.`)
 }

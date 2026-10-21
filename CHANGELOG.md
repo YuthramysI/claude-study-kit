@@ -4,7 +4,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 
 ## [Sin publicar]
 
+### Añadido
+- **Cuaderno de ejemplo**: `/cuaderno demo` (también `ejemplo` o `example`) crea un cuaderno con dos fuentes (la célula y la fotosíntesis), 10 tarjetas con su cita y un mapa mental, en el idioma de la interfaz, para probarlo todo sin preparar nada. Si ya existe, solo lo activa. La ayuda, `/cuaderno` sin cuadernos y la pestaña Cuaderno vacía lo sugieren.
+
 ### Documentación
+- Demo en inglés (`docs/demo-en.gif` y `docs/demo-en.mp4`) y capturas en inglés para el README en inglés (`docs/*-en.png`).
+- Sección «Pruébalo en 30 segundos» en los dos README.
 - README nuevo en español e inglés, más limpio: demo en video (`docs/demo.gif` y `docs/demo.mp4`, 65 s), guía de uso paso a paso, tabla de todo lo que hace, referencia plegable (comandos, skills, teclas, configuración, idioma, datos), requisitos y problemas frecuentes.
 
 ## [1.4.0] - 2026-10-20
