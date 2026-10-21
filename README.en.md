@@ -2,6 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
+[![Tests](https://img.shields.io/badge/tests-100_passing-brightgreen.svg)](#-development)
 
 English · **[Español](README.md)**
 
@@ -9,7 +10,7 @@ English · **[Español](README.md)**
 
 A plugin that turns Claude Code into your study space: **Pomodoro timer**, **spaced-repetition flashcards** and **NotebookLM-style source notebooks**. Claude studies with *your* notes and cites where every answer comes from.
 
-> The interface and commands are in Spanish (*estudio* = study). This page explains them in English.
+> 🌐 **The interface speaks English and Spanish.** It follows your system language; pick one in `/config` → **estudio** → *Idioma / Language*. Command names are the same in both languages (*estudio* = study, *cuaderno* = notebook, *repasar* = review), and they take English arguments. [More below](#-language).
 
 ## ✨ Features
 
@@ -24,8 +25,8 @@ A plugin that turns Claude Code into your study space: **Pomodoro timer**, **spa
 | 📄 **Review PDF** | `/estudio pdf`: a printable document with a stats cover, every card, the guides and quizzes Claude wrote, and cut-out double-sided flashcards. |
 | 📊 **Pro stats** | General, Review and Habits views: 30-day review forecast, accuracy curve, FSRS difficulty, hour × weekday heatmap, best study hours, recent sessions. |
 | 📝 **Sessions & coach** | Every study stretch is a session, every day gets a Markdown journal, and a Claude **coach** gives 2–3 concrete tips from your data (`/estudio resumen`). |
-| 🏆 **Achievements** | XP, levels from Novato to Leyenda, and 24 badges (streaks, marathons, night owl, top exam score…). |
-| 🎯 **Exam plan** | `/examen 15/11 Biochemistry`: countdown, daily card and pomodoro goals, FSRS forecast of how much you'll remember on exam day, and an alert if you fall behind. |
+| 🏆 **Achievements** | XP, levels from Rookie to Legend, and 24 badges (streaks, marathons, night owl, top exam score…). |
+| 🎯 **Exam plan** | `/examen November 15 Biochemistry`: countdown, daily card and pomodoro goals, FSRS forecast of how much you'll remember on exam day, and an alert if you fall behind. |
 | ⏱️ **Mock exam** | `/estudio:simulacro`: timed exam from your sources, graded out of 10 by Claude, with weak points and cards from your mistakes. |
 | 📸 **Weekly report** | `/estudio informe`: a beautiful 1080×1350 PNG of your week, ready to share. |
 | 🔁 **Anki** | Export your cards to Anki and import Anki decks or CSV files. |
@@ -46,26 +47,31 @@ or from a shell: `claude plugin install estudio --marketplace YuthramysI/claude-
 | Command | What it does |
 |---|---|
 | `/cuaderno biology` | Create a notebook (*cuaderno*); put your files in `~/estudio/biology/fuentes/` |
-| `/estudio` | Open the study pane (tabs: Pomodoro · Review · Notebook · Stats) |
+| `/estudio [review\|notebook\|map\|stats\|achievements]` | Open the study pane on that tab |
 | `/pomodoro` · `/pomodoro 50` | Start or pause the timer · a 50-minute focus session |
-| `/pomodoro pausar\|reanudar\|saltar\|parar\|estado` | pause · resume · skip · stop · status |
+| `/pomodoro pause\|resume\|skip\|stop\|status` | Timer controls (`/pomodoro test` checks the alarm) |
 | `/repasar` | Review the cards due today |
-| `/anki` · `exportar` · `importar <file>` | Card summary · export to Anki · import from Anki/CSV |
+| `/anki` · `export` · `import <file>` | Card summary · export to Anki · import from Anki/CSV |
 | `/estudio:preguntar <question>` | Answer from your sources, with citations |
 | `/estudio:tarjetas [n]` | Generate n flashcards |
 | `/estudio:guia` | Study guide → `salidas/` |
 | `/estudio:quiz [n]` | Interactive multiple-choice quiz |
 | `/estudio:audio [min]` | Spoken summary |
 | `/estudio:resumir [files]` | Summarize new sources and make their cards |
-| `/estudio:mapa [topic]` | Mind map, drawn in the 🧠 Mapa tab and the PDF |
+| `/estudio:mapa [topic]` | Mind map, drawn in the 🧠 Map tab and the PDF |
+| `/estudio:simulacro [n] [min]` | Timed mock exam, graded out of 10 |
 | `/pomodoro 50 Chemistry` | A 50-minute focus session on a task |
 | `/estudio pdf` | Your whole review as a printable PDF |
+| `/estudio summary` | Your session and day, plus 2–3 coach tips |
+| `/estudio report [last]` | Weekly PNG report card |
+| `/examen <date> [title]` · `goal <n>` · `clear` | Exam plan: «November 15», «11/15», «in 20 days» |
+| `/estudio help` · `/estudio mute` | Help · stop the voice |
 
 ## 📊 Stats & weekly report
 
 ![Plugin charts: level, exam plan, review forecast, accuracy, habits heatmap, time per topic](docs/estadisticas.png)
 
-<img src="docs/informe.png" alt="Weekly report card" width="320">
+<img src="docs/informe-en.png" alt="Weekly report card in English: focus hours, pomodoros, streak, cards, accuracy, focus per day, topics and achievements" width="320">
 
 ## 🧠 Mind maps
 
@@ -86,7 +92,16 @@ It needs Chrome, Chromium, Edge or Brave (run headless, nothing to set up). With
 
 ## ⚙️ Settings
 
-In `/config` → **estudio**: notebook folder, focus/break lengths (25/5/15), alarm (on, 3 rings, volume 80), auto-start the next pomodoro, and a reminder of the cards due today when a session opens.
+In `/config` → **estudio**: notebook folder, focus/break lengths (25/5/15), alarm (on, 3 rings, volume 80), auto-start the next pomodoro, new cards per day (20), desired FSRS retention (90 %), a reminder of the cards due today when a session opens, and the language.
+
+## 🌐 Language
+
+The whole plugin speaks **English or Spanish**: the pane and its buttons, command replies, Pomodoro alerts, the voice, achievements and levels, the review PDF and the weekly report. The skills (`/estudio:preguntar`, `/estudio:guia`…) also reply and write their files in the chosen language; quotes from your sources stay as they are.
+
+- **`auto`** (default): reads `LANGUAGE`, `LC_ALL` and `LANG`; Spanish if they start with `es`, English otherwise.
+- **`es`** or **`en`**: fixes the language regardless of the system.
+
+Dates in `/examen`: `2026-11-15`, `November 15`, `Nov 15 2026`, `in 3 weeks`, `tomorrow`. `11/15` works too; an ambiguous one like `3/11` is read day/month (3 November), and the reply always spells the date out.
 
 ## 🔊 Sound on Linux
 
@@ -97,7 +112,7 @@ The alarm uses `paplay` and the voice uses `spd-say`: `sudo apt install speech-d
 ```bash
 claude --plugin-dir .       # run Claude Code with this folder's plugin loaded
 claude plugin validate .
-claude plugin test .        # 95 tests
+claude plugin test .        # 100 tests
 ```
 
 ## 📄 License

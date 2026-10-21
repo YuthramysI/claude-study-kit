@@ -6,6 +6,7 @@ import { leerMapa, mapaSvg } from './mapa'
 import { aHtml, escapar } from './markdown'
 import { fechaLarga, pendientes, sumarDias } from './srs'
 import * as stats from './stats'
+import { L } from './i18n'
 
 export type DatosRepaso = {
   cuaderno: InfoCuaderno
@@ -20,14 +21,17 @@ export type DatosRepaso = {
   plan?: EstadoPlan & PlanExamen
 }
 
-const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
+const dias = () => L('dom lun mar mié jue vie sáb', 'Sun Mon Tue Wed Thu Fri Sat').split(' ')
 const diaSemana = (dia: string) => new Date(`${dia}T12:00:00`).getDay()
 
 /** Título legible de un archivo de salidas/: «guia-celula.md» → «Guía · celula». */
 export function tituloDocumento(archivo: string): string {
   const base = archivo.replace(/\.(md|markdown|txt)$/i, '')
   const [tipo = base, ...resto] = base.split('-')
-  const nombres: Record<string, string> = { guia: 'Guía de estudio', quiz: 'Quiz', audio: 'Guion de audio', faq: 'Preguntas frecuentes', resumen: 'Resumen', mapa: 'Mapa mental', simulacro: 'Examen simulado' }
+  const nombres: Record<string, string> = {
+    guia: L('Guía de estudio', 'Study guide'), quiz: 'Quiz', audio: L('Guion de audio', 'Audio script'), faq: L('Preguntas frecuentes', 'FAQ'),
+    resumen: L('Resumen', 'Summary'), mapa: L('Mapa mental', 'Mind map'), simulacro: L('Examen simulado', 'Mock exam'),
+  }
   const nombre = nombres[tipo.toLowerCase()]
   if (nombre === undefined) return base
   const detalle = resto.join('-')
@@ -43,10 +47,10 @@ export function grupos(tarjetas: readonly Tarjeta[], hoy: string, limiteNuevas =
   const hoyIds = new Set(cola.map(t => t.id))
   const resto = tarjetas.filter(t => !hoyIds.has(t.id))
   return [
-    { titulo: 'Para repasar hoy', nota: 'Vencen hoy o antes', tarjetas: cola },
-    { titulo: 'Nuevas en espera', nota: 'Entran según el límite diario', tarjetas: resto.filter(t => t.ultimo === 0) },
-    { titulo: 'Aprendiendo', nota: 'Repaso en menos de 3 semanas', tarjetas: resto.filter(t => t.ultimo > 0 && t.intervalo < 21) },
-    { titulo: 'Maduras', nota: 'Bien aprendidas (21 días o más)', tarjetas: resto.filter(t => t.ultimo > 0 && t.intervalo >= 21) },
+    { titulo: L('Para repasar hoy', 'To review today'), nota: L('Vencen hoy o antes', 'Due today or earlier'), tarjetas: cola },
+    { titulo: L('Nuevas en espera', 'New, waiting'), nota: L('Entran según el límite diario', 'Released by the daily limit'), tarjetas: resto.filter(t => t.ultimo === 0) },
+    { titulo: L('Aprendiendo', 'Learning'), nota: L('Repaso en menos de 3 semanas', 'Next review in under 3 weeks'), tarjetas: resto.filter(t => t.ultimo > 0 && t.intervalo < 21) },
+    { titulo: L('Maduras', 'Mature'), nota: L('Bien aprendidas (21 días o más)', 'Well learned (21+ days)'), tarjetas: resto.filter(t => t.ultimo > 0 && t.intervalo >= 21) },
   ].filter(x => x.tarjetas.length > 0)
 }
 
@@ -99,9 +103,9 @@ export function documentoRepaso(d: DatosRepaso): string {
   const numero = new Map(ordenadas.map((t, i) => [t.id, i + 1]))
 
   const indice = [
-    tarjetas.length > 0 ? '<li><a href="#tarjetas">Tarjetas</a></li>' : '',
+    tarjetas.length > 0 ? `<li><a href="#tarjetas">${L('Tarjetas', 'Flashcards')}</a></li>` : '',
     ...d.documentos.map((doc, i) => `<li><a href="#doc-${i}">${escapar(tituloDocumento(doc.archivo))}</a></li>`),
-    tarjetas.length > 0 ? '<li><a href="#recortar">Tarjetas para recortar</a></li>' : '',
+    tarjetas.length > 0 ? `<li><a href="#recortar">${L('Tarjetas para recortar', 'Cut-out cards')}</a></li>` : '',
   ].join('')
 
   const azulejo = (titulo: string, valor: string, detalle: string, color: string) =>
@@ -109,40 +113,40 @@ export function documentoRepaso(d: DatosRepaso): string {
 
   const portada = `
 <section class="portada">
-  <div class="marca">📚 estudio · repaso</div>
+  <div class="marca">📚 ${L('estudio · repaso', 'estudio · review')}</div>
   <h1>${escapar(cuaderno.nombre)}</h1>
   <div class="fecha">${escapar(fechaLarga(hoy))}</div>
-  ${d.plan !== undefined && d.plan.dias >= 0 ? `<div class="plan">🎯 <strong>${escapar(d.plan.titulo ?? 'Examen')}</strong>: ${escapar(fechaLarga(d.plan.examen))} · ${d.plan.dias === 0 ? '¡hoy!' : `faltan ${d.plan.dias} días`} · vistas ${d.plan.vistas} % · previsión de recuerdo ${d.plan.prevision} %</div>` : ''}
+  ${d.plan !== undefined && d.plan.dias >= 0 ? `<div class="plan">🎯 <strong>${escapar(d.plan.titulo ?? L('Examen', 'Exam'))}</strong>: ${escapar(fechaLarga(d.plan.examen))} · ${d.plan.dias === 0 ? L('¡hoy!', 'today!') : L(`faltan ${d.plan.dias} días`, `${d.plan.dias} days to go`)} · ${L('vistas', 'seen')} ${stats.porcentaje(d.plan.vistas, 100)} · ${L('previsión de recuerdo', 'recall forecast')} ${stats.porcentaje(d.plan.prevision, 100)}</div>` : ''}
   <div class="azulejos">
-    ${azulejo('Racha', `🔥 ${racha} ${racha === 1 ? 'día' : 'días'}`, `mejor: ${stats.mejorRacha(s)}`, g.COLOR_FASE.enfoque)}
-    ${azulejo('Pomodoros', `${total.pomodoros} 🍅`, `${stats.horas(total.minutos)} de enfoque`, g.COLOR_FASE.enfoque)}
-    ${azulejo('Aciertos', stats.porcentaje(total.aciertos, total.repasos), `7 días: ${stats.porcentaje(t7.aciertos, t7.repasos)}`, g.COLOR_FASE.descansoLargo)}
-    ${azulejo('Tarjetas', `${tarjetas.length}`, `${nHoy} para hoy${proxima !== undefined && nHoy === 0 ? ` · próxima ${proxima}` : ''}`, g.COLOR_FASE.descanso)}
+    ${azulejo(L('Racha', 'Streak'), `🔥 ${racha} ${racha === 1 ? L('día', 'day') : L('días', 'days')}`, `${L('mejor', 'best')}: ${stats.mejorRacha(s)}`, g.COLOR_FASE.enfoque)}
+    ${azulejo('Pomodoros', `${total.pomodoros} 🍅`, `${stats.horas(total.minutos)} ${L('de enfoque', 'of focus')}`, g.COLOR_FASE.enfoque)}
+    ${azulejo(L('Aciertos', 'Accuracy'), stats.porcentaje(total.aciertos, total.repasos), `${L('7 días', '7 days')}: ${stats.porcentaje(t7.aciertos, t7.repasos)}`, g.COLOR_FASE.descansoLargo)}
+    ${azulejo(L('Tarjetas', 'Cards'), `${tarjetas.length}`, `${nHoy} ${L('para hoy', 'for today')}${proxima !== undefined && nHoy === 0 ? ` · ${L('próxima', 'next')} ${proxima}` : ''}`, g.COLOR_FASE.descanso)}
   </div>
   <div class="graficos">
-    <figure><figcaption>Pomodoros · últimos 7 días</figcaption>${g.barras(semana.map(x => ({ etiqueta: DIAS[diaSemana(x.dia)] ?? '', valor: x.datos.pomodoros, esHoy: x.dia === hoy })))}</figure>
-    <figure><figcaption>Actividad · 16 semanas</figcaption>${g.mapaCalor(historia)}</figure>
+    <figure><figcaption>${L('Pomodoros · últimos 7 días', 'Pomodoros · last 7 days')}</figcaption>${g.barras(semana.map(x => ({ etiqueta: dias()[diaSemana(x.dia)] ?? '', valor: x.datos.pomodoros, esHoy: x.dia === hoy })))}</figure>
+    <figure><figcaption>${L('Actividad · 16 semanas', 'Activity · 16 weeks')}</figcaption>${g.mapaCalor(historia)}</figure>
   </div>
   <div class="graficos">
-    ${temas7.length > 0 ? `<figure><figcaption>Tiempo por tema · 7 días</figcaption>${g.barrasTemas(temas7, stats.horas)}</figure>` : ''}
-    ${tarjetas.length > 0 ? `<figure><figcaption>Etapas de las tarjetas</figcaption>${g.etapas(etapas)}</figure>` : ''}
+    ${temas7.length > 0 ? `<figure><figcaption>${L('Tiempo por tema · 7 días', 'Time per topic · 7 days')}</figcaption>${g.barrasTemas(temas7, stats.horas)}</figure>` : ''}
+    ${tarjetas.length > 0 ? `<figure><figcaption>${L('Etapas de las tarjetas', 'Card stages')}</figcaption>${g.etapas(etapas)}</figure>` : ''}
   </div>
   <div class="columnas">
     <div>
-      <h3>Fuentes (${cuaderno.fuentes.length})</h3>
-      <ul class="fuentes">${cuaderno.fuentes.map(f => `<li>${g.iconoFuente(f)} ${escapar(f)}</li>`).join('') || '<li class="tenue">Sin fuentes todavía</li>'}</ul>
+      <h3>${L('Fuentes', 'Sources')} (${cuaderno.fuentes.length})</h3>
+      <ul class="fuentes">${cuaderno.fuentes.map(f => `<li>${g.iconoFuente(f)} ${escapar(f)}</li>`).join('') || `<li class="tenue">${L('Sin fuentes todavía', 'No sources yet')}</li>`}</ul>
     </div>
     <div>
-      <h3>Contenido</h3>
-      <ol class="indice">${indice || '<li class="tenue">Aún no hay tarjetas ni documentos</li>'}</ol>
-      <p class="tenue">Hoy: ${dia.pomodoros} pomodoros · ${dia.repasos} tarjetas repasadas</p>
+      <h3>${L('Contenido', 'Contents')}</h3>
+      <ol class="indice">${indice || `<li class="tenue">${L('Aún no hay tarjetas ni documentos', 'No cards or documents yet')}</li>`}</ol>
+      <p class="tenue">${L('Hoy', 'Today')}: ${dia.pomodoros} pomodoros · ${dia.repasos} ${L('tarjetas repasadas', 'cards reviewed')}</p>
     </div>
   </div>
 </section>`
 
   const seccionTarjetas = tarjetas.length === 0 ? '' : `
 <section id="tarjetas" class="salto">
-  <h2>🃏 Tarjetas <span class="tenue">· ${tarjetas.length}</span></h2>
+  <h2>🃏 ${L('Tarjetas', 'Flashcards')} <span class="tenue">· ${tarjetas.length}</span></h2>
   ${lote.map(gr => `
   <div class="grupo">
   <h3>${escapar(gr.titulo)} <span class="tenue">· ${gr.tarjetas.length} · ${escapar(gr.nota)}</span></h3>
@@ -151,7 +155,7 @@ export function documentoRepaso(d: DatosRepaso): string {
     <article class="tarjeta">
       <div class="q"><span class="n">${numero.get(t.id) ?? ''}</span>${escapar(t.frente)}</div>
       <div class="a">${escapar(t.reverso)}</div>
-      <div class="meta">${t.fuente !== undefined ? `📎 ${escapar(t.fuente)} · ` : ''}próximo repaso: ${t.vence <= hoy ? 'hoy' : escapar(t.vence)}</div>
+      <div class="meta">${t.fuente !== undefined ? `📎 ${escapar(t.fuente)} · ` : ''}${L('próximo repaso', 'next review')}: ${t.vence <= hoy ? L('hoy', 'today') : escapar(t.vence)}</div>
     </article>`).join('')}
   </div>
   </div>`).join('')}
@@ -172,21 +176,21 @@ export function documentoRepaso(d: DatosRepaso): string {
 
   const corte = tarjetas.length === 0 ? '' : `
 <section id="recortar" class="instrucciones">
-  <h2>✂️ Tarjetas para recortar</h2>
-  <p>Imprime las páginas siguientes <strong>a doble cara, girando por el borde largo</strong>: cada respuesta queda detrás de su pregunta. Recorta por las líneas discontinuas.</p>
-  <p class="tenue">${tarjetas.length} tarjetas · ${Math.ceil(tarjetas.length / 10)} hojas (anverso y reverso)</p>
+  <h2>✂️ ${L('Tarjetas para recortar', 'Cut-out cards')}</h2>
+  <p>${L('Imprime las páginas siguientes <strong>a doble cara, girando por el borde largo</strong>: cada respuesta queda detrás de su pregunta. Recorta por las líneas discontinuas.', 'Print the next pages <strong>double-sided, flipping on the long edge</strong>: each answer lands behind its question. Cut along the dashed lines.')}</p>
+  <p class="tenue">${tarjetas.length} ${L('tarjetas', 'cards')} · ${Math.ceil(tarjetas.length / 10)} ${L('hojas (anverso y reverso)', 'sheets (front and back)')}</p>
 </section>
 ${recortables(ordenadas)}`
 
   return `<!doctype html>
-<html lang="es"><head><meta charset="utf-8">
-<title>Repaso · ${escapar(cuaderno.nombre)} · ${escapar(hoy)}</title>
+<html lang="${L('es', 'en')}"><head><meta charset="utf-8">
+<title>${L('Repaso', 'Review')} · ${escapar(cuaderno.nombre)} · ${escapar(hoy)}</title>
 <style>${CSS}</style></head>
 <body>
 ${portada}
 ${seccionTarjetas}
 ${documentos}
-<footer class="pie">Generado con el plugin estudio para Claude Code · ${escapar(hoy)} · próximo repaso sugerido: ${escapar(proxima ?? sumarDias(hoy, 1))}</footer>
+<footer class="pie">${L('Generado con el plugin estudio para Claude Code', 'Made with the estudio plugin for Claude Code')} · ${escapar(hoy)} · ${L('próximo repaso sugerido', 'suggested next review')}: ${escapar(proxima ?? sumarDias(hoy, 1))}</footer>
 ${corte}
 </body></html>`
 }

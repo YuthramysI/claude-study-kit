@@ -1,5 +1,6 @@
 // Logros, experiencia y niveles, en funciones puras: todo sale de los datos guardados.
 import type { Stats } from '../types'
+import { L } from './i18n'
 import * as stats from './stats'
 
 /** Lo que miran los logros. */
@@ -80,30 +81,30 @@ export function resumir(d: DatosLogros): Resumen {
 const meta = (campo: keyof Resumen, n: number) => (r: Resumen): [number, number] => [Math.min(n, Math.floor(r[campo] * 10) / 10), n]
 
 export const LOGROS: readonly Logro[] = [
-  { id: 'pomodoro-1', icono: '🍅', nombre: 'Primer tomate', descripcion: 'Completa tu primer pomodoro', progreso: meta('pomodoros', 1) },
-  { id: 'pomodoro-10', icono: '🧺', nombre: 'Constancia', descripcion: '10 pomodoros', progreso: meta('pomodoros', 10) },
-  { id: 'pomodoro-100', icono: '💯', nombre: 'Centurión', descripcion: '100 pomodoros', progreso: meta('pomodoros', 100) },
-  { id: 'pomodoro-500', icono: '👑', nombre: 'Rey del tomate', descripcion: '500 pomodoros', progreso: meta('pomodoros', 500) },
-  { id: 'horas-10', icono: '⏱️', nombre: '10 horas de foco', descripcion: '10 h de enfoque en total', progreso: meta('horas', 10) },
-  { id: 'horas-50', icono: '⌛', nombre: 'Medio centenar', descripcion: '50 h de enfoque', progreso: meta('horas', 50) },
-  { id: 'horas-100', icono: '🏛️', nombre: 'Cien horas', descripcion: '100 h de enfoque', progreso: meta('horas', 100) },
-  { id: 'racha-3', icono: '🔥', nombre: 'Calentando', descripcion: '3 días seguidos estudiando', progreso: meta('mejorRacha', 3) },
-  { id: 'racha-7', icono: '📅', nombre: 'Semana perfecta', descripcion: '7 días seguidos', progreso: meta('mejorRacha', 7) },
-  { id: 'racha-30', icono: '🚀', nombre: 'Imparable', descripcion: '30 días seguidos', progreso: meta('mejorRacha', 30) },
-  { id: 'racha-100', icono: '🌋', nombre: 'Volcán', descripcion: '100 días seguidos', progreso: meta('mejorRacha', 100) },
-  { id: 'repasos-100', icono: '🧠', nombre: 'Memoria en marcha', descripcion: '100 tarjetas repasadas', progreso: meta('repasos', 100) },
-  { id: 'repasos-1000', icono: '🐘', nombre: 'Memoria de elefante', descripcion: '1000 tarjetas repasadas', progreso: meta('repasos', 1000) },
-  { id: 'maduras-25', icono: '🌱', nombre: 'Raíces', descripcion: '25 tarjetas maduras en un cuaderno', progreso: meta('maduras', 25) },
-  { id: 'maduras-100', icono: '🌳', nombre: 'Bosque', descripcion: '100 tarjetas maduras en un cuaderno', progreso: meta('maduras', 100) },
-  { id: 'dia-perfecto', icono: '🎯', nombre: 'Día perfecto', descripcion: '20+ tarjetas en un día con ≥ 90 % de aciertos', progreso: meta('diaPerfecto', 1) },
-  { id: 'maraton', icono: '🏃', nombre: 'Maratón', descripcion: '4 h de enfoque en un mismo día', progreso: meta('maraton', 240) },
-  { id: 'buho', icono: '🦉', nombre: 'Búho', descripcion: '1 h de enfoque entre las 22 y las 5 h', progreso: meta('nocturno', 60) },
-  { id: 'madrugador', icono: '🌅', nombre: 'Madrugador', descripcion: '1 h de enfoque entre las 5 y las 8 h', progreso: meta('madrugador', 60) },
-  { id: 'examen-1', icono: '📝', nombre: 'A prueba', descripcion: 'Haz tu primer examen simulado', progreso: meta('examenes', 1) },
-  { id: 'examen-9', icono: '🏅', nombre: 'Sobresaliente', descripcion: 'Saca un 9 o más en un examen simulado', progreso: meta('mejorNota', 9) },
-  { id: 'mapa-1', icono: '🗺️', nombre: 'Cartógrafo', descripcion: 'Crea un mapa mental', progreso: meta('mapas', 1) },
-  { id: 'pdf-1', icono: '🖨️', nombre: 'A papel', descripcion: 'Genera tu primer PDF de repaso', progreso: meta('pdfs', 1) },
-  { id: 'temas-5', icono: '🧩', nombre: 'Polímata', descripcion: 'Estudia 5 temas distintos', progreso: meta('temas', 5) },
+  { id: 'pomodoro-1', icono: '🍅', get nombre() { return L('Primer tomate', 'First tomato') }, get descripcion() { return L('Completa tu primer pomodoro', 'Complete your first pomodoro') }, progreso: meta('pomodoros', 1) },
+  { id: 'pomodoro-10', icono: '🧺', get nombre() { return L('Constancia', 'Consistency') }, get descripcion() { return L('10 pomodoros', '10 pomodoros') }, progreso: meta('pomodoros', 10) },
+  { id: 'pomodoro-100', icono: '💯', get nombre() { return L('Centurión', 'Centurion') }, get descripcion() { return L('100 pomodoros', '100 pomodoros') }, progreso: meta('pomodoros', 100) },
+  { id: 'pomodoro-500', icono: '👑', get nombre() { return L('Rey del tomate', 'Tomato king') }, get descripcion() { return L('500 pomodoros', '500 pomodoros') }, progreso: meta('pomodoros', 500) },
+  { id: 'horas-10', icono: '⏱️', get nombre() { return L('10 horas de foco', '10 hours of focus') }, get descripcion() { return L('10 h de enfoque en total', '10 h of focus in total') }, progreso: meta('horas', 10) },
+  { id: 'horas-50', icono: '⌛', get nombre() { return L('Medio centenar', 'Half a hundred') }, get descripcion() { return L('50 h de enfoque', '50 h of focus') }, progreso: meta('horas', 50) },
+  { id: 'horas-100', icono: '🏛️', get nombre() { return L('Cien horas', 'A hundred hours') }, get descripcion() { return L('100 h de enfoque', '100 h of focus') }, progreso: meta('horas', 100) },
+  { id: 'racha-3', icono: '🔥', get nombre() { return L('Calentando', 'Warming up') }, get descripcion() { return L('3 días seguidos estudiando', '3 days in a row studying') }, progreso: meta('mejorRacha', 3) },
+  { id: 'racha-7', icono: '📅', get nombre() { return L('Semana perfecta', 'Perfect week') }, get descripcion() { return L('7 días seguidos', '7 days in a row') }, progreso: meta('mejorRacha', 7) },
+  { id: 'racha-30', icono: '🚀', get nombre() { return L('Imparable', 'Unstoppable') }, get descripcion() { return L('30 días seguidos', '30 days in a row') }, progreso: meta('mejorRacha', 30) },
+  { id: 'racha-100', icono: '🌋', get nombre() { return L('Volcán', 'Volcano') }, get descripcion() { return L('100 días seguidos', '100 days in a row') }, progreso: meta('mejorRacha', 100) },
+  { id: 'repasos-100', icono: '🧠', get nombre() { return L('Memoria en marcha', 'Memory in motion') }, get descripcion() { return L('100 tarjetas repasadas', '100 cards reviewed') }, progreso: meta('repasos', 100) },
+  { id: 'repasos-1000', icono: '🐘', get nombre() { return L('Memoria de elefante', 'Elephant memory') }, get descripcion() { return L('1000 tarjetas repasadas', '1000 cards reviewed') }, progreso: meta('repasos', 1000) },
+  { id: 'maduras-25', icono: '🌱', get nombre() { return L('Raíces', 'Roots') }, get descripcion() { return L('25 tarjetas maduras en un cuaderno', '25 mature cards in a notebook') }, progreso: meta('maduras', 25) },
+  { id: 'maduras-100', icono: '🌳', get nombre() { return L('Bosque', 'Forest') }, get descripcion() { return L('100 tarjetas maduras en un cuaderno', '100 mature cards in a notebook') }, progreso: meta('maduras', 100) },
+  { id: 'dia-perfecto', icono: '🎯', get nombre() { return L('Día perfecto', 'Perfect day') }, get descripcion() { return L('20+ tarjetas en un día con ≥ 90 % de aciertos', '20+ cards in a day with ≥ 90% correct') }, progreso: meta('diaPerfecto', 1) },
+  { id: 'maraton', icono: '🏃', get nombre() { return L('Maratón', 'Marathon') }, get descripcion() { return L('4 h de enfoque en un mismo día', '4 h of focus in a single day') }, progreso: meta('maraton', 240) },
+  { id: 'buho', icono: '🦉', get nombre() { return L('Búho', 'Night owl') }, get descripcion() { return L('1 h de enfoque entre las 22 y las 5 h', '1 h of focus between 10 pm and 5 am') }, progreso: meta('nocturno', 60) },
+  { id: 'madrugador', icono: '🌅', get nombre() { return L('Madrugador', 'Early bird') }, get descripcion() { return L('1 h de enfoque entre las 5 y las 8 h', '1 h of focus between 5 and 8 am') }, progreso: meta('madrugador', 60) },
+  { id: 'examen-1', icono: '📝', get nombre() { return L('A prueba', 'Put to the test') }, get descripcion() { return L('Haz tu primer examen simulado', 'Take your first mock exam') }, progreso: meta('examenes', 1) },
+  { id: 'examen-9', icono: '🏅', get nombre() { return L('Sobresaliente', 'Top marks') }, get descripcion() { return L('Saca un 9 o más en un examen simulado', 'Score 9 or more on a mock exam') }, progreso: meta('mejorNota', 9) },
+  { id: 'mapa-1', icono: '🗺️', get nombre() { return L('Cartógrafo', 'Cartographer') }, get descripcion() { return L('Crea un mapa mental', 'Create a mind map') }, progreso: meta('mapas', 1) },
+  { id: 'pdf-1', icono: '🖨️', get nombre() { return L('A papel', 'On paper') }, get descripcion() { return L('Genera tu primer PDF de repaso', 'Generate your first review PDF') }, progreso: meta('pdfs', 1) },
+  { id: 'temas-5', icono: '🧩', get nombre() { return L('Polímata', 'Polymath') }, get descripcion() { return L('Estudia 5 temas distintos', 'Study 5 different topics') }, progreso: meta('temas', 5) },
 ]
 
 export const conseguido = (l: Logro, r: Resumen) => {
@@ -126,12 +127,14 @@ export function nivel(xp: number): { nivel: number; titulo: string; desde: numbe
   return { nivel: n, titulo: titulo(n), desde: xpDeNivel(n), hasta: xpDeNivel(n + 1) }
 }
 
-const TITULOS: readonly [number, string][] = [
-  [25, 'Leyenda'], [20, 'Maestro'], [16, 'Sabio'], [12, 'Erudito'], [8, 'Avanzado'], [5, 'Estudiante'], [3, 'Aprendiz'], [0, 'Novato'],
+const TITULOS: readonly [number, string, string][] = [
+  [25, 'Leyenda', 'Legend'], [20, 'Maestro', 'Master'], [16, 'Sabio', 'Sage'], [12, 'Erudito', 'Scholar'],
+  [8, 'Avanzado', 'Advanced'], [5, 'Estudiante', 'Student'], [3, 'Aprendiz', 'Apprentice'], [0, 'Novato', 'Rookie'],
 ]
 
 export function titulo(n: number): string {
-  return TITULOS.find(([desde]) => n >= desde)?.[1] ?? 'Novato'
+  const t = TITULOS.find(([desde]) => n >= desde) ?? TITULOS[TITULOS.length - 1]
+  return t === undefined ? L('Novato', 'Rookie') : L(t[1], t[2])
 }
 
 /** Logros recién conseguidos: los que se cumplen y no estaban apuntados. */

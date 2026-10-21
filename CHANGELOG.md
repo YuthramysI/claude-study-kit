@@ -4,6 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 
 ## [Sin publicar]
 
+## [1.4.0] - 2026-10-20
+
+### Añadido
+- **Interfaz en español o inglés.** Opción `idioma` en `/config` (`auto`, `es`, `en`); con `auto`, se elige según `LANGUAGE`, `LC_ALL` o `LANG`. Se traducen el panel, los comandos y su ayuda, los avisos, la voz, los logros y niveles, el PDF de repaso y el informe semanal. `cuaderno_activo` devuelve `idioma` y las skills responden y escriben sus archivos en ese idioma.
+- Los comandos entienden argumentos en inglés: `/pomodoro start|pause|resume|skip|stop|status|task|test`, `/estudio review|notebook|map|achievements|summary|report [last]|mute|help`, `/anki export|import`, `/examen goal|clear`.
+- `/examen` lee fechas en inglés («November 15», «Nov 15 2026», «in 3 weeks», «tomorrow») y también mes/día cuando no puede ser día/mes («11/15»).
+- Las pestañas de `/estudio` se pueden abrir por el comienzo de su nombre (`/estudio rep`).
+
 ## [1.3.0] - 2026-10-20
 
 ### Añadido

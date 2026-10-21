@@ -1,5 +1,6 @@
 // Mapas mentales: un esquema en Markdown (lista anidada) dibujado como árbol.
 import { COLORES_TEMA } from './graficos'
+import { L } from './i18n'
 
 export type Nodo = { texto: string; hijos: Nodo[] }
 export type Mapa = { titulo: string; raiz: Nodo }
@@ -27,7 +28,7 @@ export function leerMapa(md: string): Mapa | undefined {
   for (const linea of md.replace(/\r\n?/g, '\n').split('\n')) {
     const cabecera = /^#\s+(.+?)\s*#*\s*$/.exec(linea)
     if (cabecera && titulo === undefined) {
-      titulo = limpiar((cabecera[1] ?? '').replace(/^mapa mental\s*[:·-]\s*/i, ''))
+      titulo = limpiar((cabecera[1] ?? '').replace(/^(mapa mental|mind map)\s*[:·-]\s*/i, ''))
       continue
     }
     const item = /^(\s*)(?:[-*+]|\d+[.)])\s+(.+)$/.exec(linea)
@@ -47,7 +48,7 @@ export function leerMapa(md: string): Mapa | undefined {
   if (titulo !== undefined && titulo !== '') return { titulo, raiz: { texto: titulo, hijos: raiz.hijos } }
   const unica = raiz.hijos.length === 1 ? raiz.hijos[0] : undefined
   if (unica !== undefined) return { titulo: unica.texto, raiz: unica }
-  return { titulo: 'Mapa mental', raiz: { texto: 'Mapa mental', hijos: raiz.hijos } }
+  return { titulo: L('Mapa mental', 'Mind map'), raiz: { texto: L('Mapa mental', 'Mind map'), hijos: raiz.hijos } }
 }
 
 /** El mapa como árbol de texto para la terminal: ├─ └─ │ */

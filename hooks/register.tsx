@@ -9,10 +9,9 @@ import type { Host } from './host'
 import { hostOf } from './motor'
 import { registrarPanel } from './panel'
 import { fecha, pendientes } from './srs'
+import { detectarIdioma, fijarIdioma, idioma, L } from './i18n'
 
-const PESTANAS: readonly Pestana[] = ['pomodoro', 'repaso', 'cuaderno', 'mapa', 'stats', 'logros']
-
-const AYUDA = `Comandos de estudio:
+const ayuda = () => L(`Comandos de estudio:
   /estudio [pomodoro|repaso|cuaderno|mapa|stats|logros]  panel de estudio
   /estudio pdf                                       PDF de repaso del cuaderno activo
   /estudio resumen                                   resumen de tu sesión y consejo del coach
@@ -22,7 +21,24 @@ const AYUDA = `Comandos de estudio:
   /repasar                                           repasar tarjetas pendientes
   /anki [exportar|importar <archivo>]                tarjetas: resumen, exportar a Anki, importar
   /examen [<fecha> [título]|meta <n>|borrar]         plan de examen: cuenta atrás y meta diaria
-Con Claude: /estudio:preguntar · /estudio:resumir · /estudio:tarjetas · /estudio:guia · /estudio:mapa · /estudio:quiz · /estudio:audio`
+Con Claude: /estudio:preguntar · /estudio:resumir · /estudio:tarjetas · /estudio:guia · /estudio:mapa · /estudio:quiz · /estudio:simulacro · /estudio:audio`,
+`Study commands:
+  /estudio [pomodoro|review|notebook|map|stats|achievements]  study pane
+  /estudio pdf                                       review PDF of the active notebook
+  /estudio summary                                   your session summary and coach tips
+  /estudio report [last]                             PNG card of your week to share
+  /pomodoro [start [min] [task]|task <text>|pause|resume|skip|stop|status]
+  /cuaderno [name]                                   create or pick a notebook
+  /repasar                                           review the cards due today
+  /anki [export|import <file>]                       cards: summary, export to Anki, import
+  /examen [<date> [title]|goal <n>|clear]            exam plan: countdown and daily goal
+With Claude: /estudio:preguntar (ask) · /estudio:resumir (summarize) · /estudio:tarjetas (cards) · /estudio:guia (guide) · /estudio:mapa (mind map) · /estudio:quiz · /estudio:simulacro (mock exam) · /estudio:audio`)
+
+/** Nombres de pestaña que entiende /estudio, en los dos idiomas. */
+const ALIAS_PESTANA: Record<string, Pestana> = {
+  pomodoro: 'pomodoro', repaso: 'repaso', review: 'repaso', cuaderno: 'cuaderno', notebook: 'cuaderno',
+  mapa: 'mapa', map: 'mapa', stats: 'stats', estadisticas: 'stats', logros: 'logros', achievements: 'logros',
+}
 
 const VERBOS: Record<string, acc.VerboPomodoro> = {
   iniciar: 'iniciar', empezar: 'iniciar', start: 'iniciar',
@@ -33,15 +49,19 @@ const VERBOS: Record<string, acc.VerboPomodoro> = {
   alternar: 'alternar',
 }
 
-const ARG_POMODORO = '[iniciar [min] [tarea]|tarea <texto>|pausar|reanudar|saltar|parar|estado|probar]'
+const argPomodoro = () => L('[iniciar [min] [tarea]|tarea <texto>|pausar|reanudar|saltar|parar|estado|probar]', '[start [min] [task]|task <text>|pause|resume|skip|stop|status|test]')
 
 export const register: Register = (on, options) => {
   const cfg = config(options)
   let host: Host | null = null
   let home = ''
 
+  // con «es» o «en» fijados en /config el idioma se sabe ya; con «auto», al arrancar
+  fijarIdioma(detectarIdioma(cfg.idioma, []))
+
   on('session.start', async ($, e, next) => {
     const started = await next(e)
+    fijarIdioma(detectarIdioma(cfg.idioma, [await $.env.get('LANGUAGE'), await $.env.get('LC_ALL'), await $.env.get('LANG')]))
     // HOME en Linux y macOS; USERPROFILE en Windows
     home = ((await $.env.get('HOME')) ?? (await $.env.get('USERPROFILE')) ?? '').replace(/\\/g, '/')
     const h = hostOf($, home)
@@ -59,13 +79,13 @@ export const register: Register = (on, options) => {
         acc.arranque.errores.push(`${nombre}: ${mensaje(err)}`)
       })
     await Promise.all([
-      registrar('/estudio', $.command.register({ name: 'estudio', description: 'Abre el panel de estudio (Pomodoro, repaso, cuaderno, estadísticas)', argumentHint: '[pomodoro|repaso|cuaderno|mapa|stats|logros|pdf|resumen|informe|callar|ayuda]' })),
-      registrar('/pomodoro', $.command.register({ name: 'pomodoro', description: 'Controla el Pomodoro', argumentHint: ARG_POMODORO, immediate: true })),
-      registrar('/promodoro', $.command.register({ name: 'promodoro', description: 'Igual que /pomodoro', argumentHint: ARG_POMODORO, immediate: true })),
-      registrar('/cuaderno', $.command.register({ name: 'cuaderno', description: 'Crea o elige el cuaderno de estudio activo', argumentHint: '[nombre]' })),
-      registrar('/repasar', $.command.register({ name: 'repasar', description: 'Repasa las tarjetas pendientes de hoy' })),
-      registrar('/examen', $.command.register({ name: 'examen', description: 'Plan de examen del cuaderno activo: fecha, meta diaria y previsión', argumentHint: '[<fecha> [título]|meta <n>|borrar]' })),
-      registrar('/anki', $.command.register({ name: 'anki', description: 'Resumen de tarjetas; exportarlas a Anki o importarlas desde Anki/CSV', argumentHint: '[exportar|importar <archivo>]' })),
+      registrar('/estudio', $.command.register({ name: 'estudio', description: L('Abre el panel de estudio (Pomodoro, repaso, cuaderno, estadísticas)', 'Open the study pane (Pomodoro, review, notebook, stats)'), argumentHint: L('[pomodoro|repaso|cuaderno|mapa|stats|logros|pdf|resumen|informe|callar|ayuda]', '[pomodoro|review|notebook|map|stats|achievements|pdf|summary|report|mute|help]') })),
+      registrar('/pomodoro', $.command.register({ name: 'pomodoro', description: L('Controla el Pomodoro', 'Control the Pomodoro timer'), argumentHint: argPomodoro(), immediate: true })),
+      registrar('/promodoro', $.command.register({ name: 'promodoro', description: L('Igual que /pomodoro', 'Same as /pomodoro'), argumentHint: argPomodoro(), immediate: true })),
+      registrar('/cuaderno', $.command.register({ name: 'cuaderno', description: L('Crea o elige el cuaderno de estudio activo', 'Create or pick the active study notebook'), argumentHint: L('[nombre]', '[name]') })),
+      registrar('/repasar', $.command.register({ name: 'repasar', description: L('Repasa las tarjetas pendientes de hoy', 'Review the cards due today') })),
+      registrar('/examen', $.command.register({ name: 'examen', description: L('Plan de examen del cuaderno activo: fecha, meta diaria y previsión', 'Exam plan for the active notebook: date, daily goal and forecast'), argumentHint: L('[<fecha> [título]|meta <n>|borrar]', '[<date> [title]|goal <n>|clear]') })),
+      registrar('/anki', $.command.register({ name: 'anki', description: L('Resumen de tarjetas; exportarlas a Anki o importarlas desde Anki/CSV', 'Card summary; export them to Anki or import from Anki/CSV'), argumentHint: L('[exportar|importar <archivo>]', '[export|import <file>]') })),
       registrar('cuaderno_activo', $.tool.register({
         name: 'cuaderno_activo',
         isDeferred: false,
@@ -180,7 +200,7 @@ export const register: Register = (on, options) => {
         isDeferred: false,
         description:
           'Lee un texto en voz alta con el sintetizador de voz del sistema, en segundo plano. ' +
-          'Texto plano en español, sin markdown. El usuario lo detiene con /estudio callar.',
+          'Texto plano en el idioma del usuario (el campo idioma de cuaderno_activo), sin markdown. El usuario lo detiene con /estudio callar.',
         inputSchema: {
           type: 'object',
           properties: { texto: { type: 'string' } },
@@ -242,6 +262,8 @@ export const register: Register = (on, options) => {
     const tarjetas = await h.st.tarjetas.leer()
     return {
       result: JSON.stringify({
+        // las skills escriben en el idioma de la interfaz
+        idioma: idioma() === 'en' ? 'en (English: reply and write every file in English)' : 'es (español)',
         nombre: info.nombre,
         carpeta: info.ruta,
         salidas: `${info.ruta}/salidas`,
@@ -342,16 +364,19 @@ async function seguro(fn: () => Promise<{ text: string }>): Promise<{ text: stri
 async function comandoEstudio($: EngineInterface, args: string, cfg: Config, home: string) {
   const h = hostOf($, home)
   const arg = args.trim().toLowerCase()
-  if (arg === 'callar') {
+  if (arg === 'callar' || arg === 'mute') {
     await acc.callar(h)
-    return { text: 'Voz detenida.' }
+    return { text: L('Voz detenida.', 'Voice stopped.') }
   }
-  if (arg === 'ayuda' || arg === 'help') return { text: AYUDA }
+  if (arg === 'ayuda' || arg === 'help') return { text: ayuda() }
   if (arg === 'pdf') return { text: await acc.generarPdf(h, cfg) }
-  if (arg === 'resumen' || arg === 'sesion' || arg === 'sesión') return { text: await acc.resumenSesion(h, cfg) }
-  if (arg === 'informe' || arg === 'informe pasada') return { text: await acc.generarInforme(h, cfg, arg.endsWith('pasada')) }
-  const pestana = arg === '' ? undefined : PESTANAS.find(p => p.startsWith(arg))
-  if (arg !== '' && pestana === undefined) return { text: `No conozco «${arg}».\n${AYUDA}` }
+  if (['resumen', 'sesion', 'sesión', 'summary', 'session'].includes(arg)) return { text: await acc.resumenSesion(h, cfg) }
+  const informe = /^(informe|report)(?:\s+(pasada|last))?$/.exec(arg)
+  if (informe) return { text: await acc.generarInforme(h, cfg, informe[2] !== undefined) }
+  // la pestaña por su nombre en cualquiera de los dos idiomas, o por su comienzo
+  const alias = arg === '' ? undefined : Object.keys(ALIAS_PESTANA).find(nombre => nombre.startsWith(arg))
+  const pestana = alias === undefined ? undefined : ALIAS_PESTANA[alias]
+  if (arg !== '' && pestana === undefined) return { text: `${L(`No conozco «${arg}».`, `Unknown «${arg}».`)}\n${ayuda()}` }
   const abierto = await abrirPanel(h, cfg, pestana)
   return { text: pestana === 'stats' ? `${abierto}\n${await acc.textoStats(h)}` : abierto }
 }
@@ -367,16 +392,16 @@ async function comandoPomodoro($: EngineInterface, args: string, cfg: Config, ho
   if (verbo === 'probar' || verbo === 'test') return { text: await acc.probarAvisos(h, cfg) }
   if (verbo === 'tarea' || verbo === 'task') {
     const tarea = palabras.slice(1).join(' ')
-    if (tarea === '') return { text: `Tarea actual: ${(await h.st.pomodoro.leer()).tarea ?? 'ninguna'}. Cámbiala con /pomodoro tarea <texto>.` }
+    if (tarea === '') return { text: L(`Tarea actual: ${(await h.st.pomodoro.leer()).tarea ?? 'ninguna'}. Cámbiala con /pomodoro tarea <texto>.`, `Current task: ${(await h.st.pomodoro.leer()).tarea ?? 'none'}. Change it with /pomodoro task <text>.`) }
     return { text: await acc.fijarTarea(h, tarea) }
   }
   const esNumero = (p: string | undefined) => p !== undefined && /^\d+([.,]\d+)?$/.test(p)
   const soloNumero = esNumero(palabras[0])
   const accion = soloNumero ? 'iniciar' : palabras.length === 0 ? 'alternar' : VERBOS[verbo]
-  if (accion === undefined) return { text: `No entiendo «${palabras[0] ?? ''}». Usa: /pomodoro ${ARG_POMODORO}` }
+  if (accion === undefined) return { text: L(`No entiendo «${palabras[0] ?? ''}». Usa: /pomodoro ${argPomodoro()}`, `I don't understand «${palabras[0] ?? ''}». Use: /pomodoro ${argPomodoro()}`) }
   const conMinutos = soloNumero ? palabras[0] : esNumero(palabras[1]) ? palabras[1] : undefined
   const minutos = conMinutos !== undefined ? Number(conMinutos.replace(',', '.')) : undefined
-  if (minutos !== undefined && !(minutos > 0 && minutos <= 240)) return { text: 'Los minutos van de 1 a 240.' }
+  if (minutos !== undefined && !(minutos > 0 && minutos <= 240)) return { text: L('Los minutos van de 1 a 240.', 'Minutes go from 1 to 240.') }
   const resto = palabras.slice(soloNumero ? 1 : conMinutos !== undefined ? 2 : 1).join(' ')
   // solo al iniciar se puede nombrar la tarea en la misma orden
   const tarea = accion === 'iniciar' || accion === 'alternar' ? resto : ''
@@ -388,16 +413,16 @@ async function comandoCuaderno($: EngineInterface, args: string, cfg: Config, ho
   const arg = args.trim()
   if (arg === '') return { text: await acc.textoCuadernos(h, cfg) }
   const nombre = cuadernos.nombreValido(arg)
-  if (nombre === undefined) return { text: 'Nombre no válido: usa letras, números, espacios, - o _ (máximo 64).' }
+  if (nombre === undefined) return { text: L('Nombre no válido: usa letras, números, espacios, - o _ (máximo 64).', 'Invalid name: use letters, digits, spaces, - or _ (64 max).') }
   try {
     const info = await acc.abrirCuaderno(h, cfg, nombre)
-    if (info === null) return { text: `No pude abrir «${nombre}».` }
+    if (info === null) return { text: L(`No pude abrir «${nombre}».`, `Could not open «${nombre}».`) }
     const fuentes = info.fuentes.length === 0
-      ? `Copia tus PDFs o apuntes a:\n  ${info.ruta}/fuentes/`
-      : `${info.fuentes.length} fuentes: ${info.fuentes.slice(0, 8).join(', ')}${info.fuentes.length > 8 ? '…' : ''}`
-    return { text: `Cuaderno activo: «${info.nombre}».\n${fuentes}` }
+      ? L(`Copia tus PDFs o apuntes a:\n  ${info.ruta}/fuentes/`, `Copy your PDFs or notes to:\n  ${info.ruta}/fuentes/`)
+      : `${info.fuentes.length} ${L('fuentes', 'sources')}: ${info.fuentes.slice(0, 8).join(', ')}${info.fuentes.length > 8 ? '…' : ''}`
+    return { text: `${L(`Cuaderno activo: «${info.nombre}».`, `Active notebook: «${info.nombre}».`)}\n${fuentes}` }
   } catch (err) {
-    return { text: `No pude crear el cuaderno en ${cuadernos.raiz(h, cfg.carpeta)}: ${mensaje(err)}` }
+    return { text: L(`No pude crear el cuaderno en ${cuadernos.raiz(h, cfg.carpeta)}: ${mensaje(err)}`, `Could not create the notebook in ${cuadernos.raiz(h, cfg.carpeta)}: ${mensaje(err)}`) }
   }
 }
 
@@ -406,8 +431,8 @@ async function comandoRepasar($: EngineInterface, cfg: Config, home: string) {
   await acc.refrescarCuaderno(h, cfg)
   const n = pendientes(await h.st.tarjetas.leer(), fecha(await $.clock.now()), await acc.limiteNuevas(h, cfg)).length
   const abierto = await abrirPanel(h, cfg, 'repaso')
-  if (n === 0) return { text: `${abierto} No tienes tarjetas pendientes hoy. 🎉` }
-  return { text: `${abierto} ${n} ${n === 1 ? 'tarjeta pendiente' : 'tarjetas pendientes'} hoy: pulsa m para ver la respuesta y 1-4 para calificar.` }
+  if (n === 0) return { text: `${abierto} ${L('No tienes tarjetas pendientes hoy. 🎉', 'No cards due today. 🎉')}` }
+  return { text: `${abierto} ${L(`${n} ${n === 1 ? 'tarjeta pendiente' : 'tarjetas pendientes'} hoy: pulsa m para ver la respuesta y 1-4 para calificar.`, `${n} ${n === 1 ? 'card' : 'cards'} due today: press m to show the answer and 1-4 to grade.`)}` }
 }
 
 async function comandoAnki($: EngineInterface, args: string, cfg: Config, home: string) {
@@ -423,11 +448,11 @@ async function comandoAnki($: EngineInterface, args: string, cfg: Config, home: 
     case 'importar':
     case 'import': {
       const ruta = resto.join(' ').replace(/^["']|["']$/g, '')
-      if (ruta === '') return { text: 'Indica el archivo: /anki importar <archivo.txt|.csv>' }
+      if (ruta === '') return { text: L('Indica el archivo: /anki importar <archivo.txt|.csv>', 'Give the file: /anki import <file.txt|.csv>') }
       return { text: await acc.importarAnki(h, cfg, ruta) }
     }
     default:
-      return { text: 'Usa: /anki · /anki exportar · /anki importar <archivo>' }
+      return { text: L('Usa: /anki · /anki exportar · /anki importar <archivo>', 'Use: /anki · /anki export · /anki import <file>') }
   }
 }
 
@@ -435,7 +460,7 @@ async function abrirPanel(h: Host, cfg: Config, pestana?: Pestana): Promise<stri
   if (pestana !== undefined) await h.st.pestana.cambiar(() => pestana)
   if ((await h.st.cuaderno.leer()) === null) await acc.refrescarCuaderno(h, cfg)
   const r = await h.openPane({ id: PANEL, title: 'Estudio', focus: true })
-  return r.isPlaced ? 'Panel de estudio abierto.' : `El panel se abrirá cuando haya sitio (${r.reason}).`
+  return r.isPlaced ? L('Panel de estudio abierto.', 'Study pane opened.') : L(`El panel se abrirá cuando haya sitio (${r.reason}).`, `The pane will open when there is room (${r.reason}).`)
 }
 
 /** Antes de cada comando: respaldo del temporizador, por si no está latiendo. */

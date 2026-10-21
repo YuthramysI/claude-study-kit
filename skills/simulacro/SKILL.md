@@ -1,10 +1,12 @@
 ---
 name: simulacro
-description: Hace un examen simulado cronometrado sobre las fuentes del cuaderno activo (preguntas tipo test y de desarrollo), lo corrige con nota sobre 10, explica los puntos débiles y convierte los fallos en tarjetas. Úsala cuando el usuario quiera un simulacro, un examen de prueba o ponerse a prueba en condiciones de examen.
+description: Hace un examen simulado cronometrado sobre las fuentes del cuaderno activo (preguntas tipo test y de desarrollo), lo corrige con nota sobre 10, explica los puntos débiles y convierte los fallos en tarjetas. Úsala cuando el usuario quiera un simulacro, un examen de prueba o ponerse a prueba en condiciones de examen. EN: Timed mock exam (multiple choice + short answers), graded out of 10, mistakes turned into cards.
 argument-hint: "[nº de preguntas] [minutos] [tema]"
 ---
 
 # Examen simulado
+
+> **Idioma / Language:** la respuesta de `mcp__estudio__cuaderno_activo` trae `idioma`. Si es `en`, responde al usuario y escribe todos los archivos **en inglés** (los títulos de las secciones también), aunque estas instrucciones estén en español. Si es `es`, en español. Las citas de las fuentes se dejan en su idioma original.
 
 Petición: $ARGUMENTS (por defecto, 10 preguntas en 15 minutos, de todo el cuaderno).
 

@@ -1,10 +1,12 @@
 ---
 name: audio
-description: Crea un "resumen en audio" (estilo podcast) de las fuentes del cuaderno activo y lo lee en voz alta. Úsala cuando el usuario quiera escuchar un resumen, un podcast o repasar mientras hace otra cosa.
+description: Crea un "resumen en audio" (estilo podcast) de las fuentes del cuaderno activo y lo lee en voz alta. Úsala cuando el usuario quiera escuchar un resumen, un podcast o repasar mientras hace otra cosa. EN: Podcast-style spoken summary of the active notebook, read aloud.
 argument-hint: "[minutos] [tema]"
 ---
 
 # Resumen en audio
+
+> **Idioma / Language:** la respuesta de `mcp__estudio__cuaderno_activo` trae `idioma`. Si es `en`, responde al usuario y escribe todos los archivos **en inglés** (los títulos de las secciones también), aunque estas instrucciones estén en español. Si es `es`, en español. Las citas de las fuentes se dejan en su idioma original.
 
 Petición: $ARGUMENTS (por defecto, unos 4 minutos de todo el cuaderno).
 

@@ -1,7 +1,7 @@
 {
   "name": "estudio",
-  "version": "1.3.0",
-  "description": "Estudia dentro de Claude Code: Pomodoro con tareas, tarjetas FSRS, cuadernos al estilo NotebookLM, mapas mentales, plan de examen, simulacros, logros, estadísticas pro, diario con coach e informe semanal.",
+  "version": "1.4.0",
+  "description": "Estudia dentro de Claude Code: Pomodoro con tareas, tarjetas FSRS, cuadernos al estilo NotebookLM, mapas mentales, plan de examen, simulacros, logros, estadísticas pro, diario con coach e informe semanal. Interfaz en español o inglés.",
   "author": {
     "name": "Yuthramys Ibarra",
     "url": "https://github.com/YuthramysI"
@@ -23,6 +23,13 @@
   ],
   "types": "./types/index.d.ts",
   "userConfig": {
+    "idioma": {
+      "type": "string",
+      "title": "Idioma / Language",
+      "description": "Idioma de la interfaz: auto (el del sistema), es (español) o en (English).",
+      "default": "auto",
+      "options": ["auto", "es", "en"]
+    },
     "carpeta": {
       "type": "string",
       "title": "Carpeta de estudio",

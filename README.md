@@ -2,9 +2,11 @@
 
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-green.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
-[![Tests](https://img.shields.io/badge/tests-95_pasan-brightgreen.svg)](#desarrollo)
+[![Tests](https://img.shields.io/badge/tests-100_pasan-brightgreen.svg)](#desarrollo)
 
 **[English](README.en.md)** · Español
+
+> 🌐 **Interfaz en español o inglés.** Sigue el idioma de tu sistema; cámbialo en `/config` → **estudio** → *Idioma / Language*. [Más abajo](#-idioma--language).
 
 Un plugin que convierte Claude Code en tu espacio de estudio: **Pomodoro**, **tarjetas con repaso espaciado** y **cuadernos de fuentes al estilo NotebookLM**. Claude estudia contigo usando *tus* apuntes y cita de dónde saca cada respuesta.
 
@@ -161,6 +163,16 @@ En `/config` → **estudio**:
 | Tarjetas nuevas por día | 20 |
 | Retención deseada (FSRS) | 90 % |
 | Recordar tarjetas pendientes al abrir sesión | sí |
+| Idioma / Language | `auto` (el del sistema) · `es` · `en` |
+
+## 🌐 Idioma / Language
+
+Todo el plugin habla **español o inglés**: el panel y sus botones, las respuestas de los comandos, los avisos del Pomodoro, la voz, los logros y niveles, el PDF de repaso y el informe semanal. Las skills (`/estudio:preguntar`, `/estudio:guia`…) también responden y escriben sus archivos en el idioma elegido; las citas de tus fuentes se quedan como están.
+
+- **`auto`** (por defecto): mira `LANGUAGE`, `LC_ALL` y `LANG`; si empiezan por `es`, español; si no, inglés.
+- **`es`** o **`en`**: fija el idioma, sea cual sea el del sistema.
+
+Los comandos se llaman igual en los dos idiomas, pero entienden los argumentos en ambos: `/pomodoro start|pause|resume|skip|stop|status|task`, `/estudio review|notebook|map|achievements|summary|report [last]|mute|help`, `/anki export|import`, `/examen goal|clear` y fechas como «November 15», «11/15» o «in 20 days».
 
 ## 📊 Estadísticas pro
 
@@ -278,7 +290,7 @@ El PDF se guarda en `salidas/repaso-<cuaderno>-<fecha>.pdf` y se abre solo. Pued
 git clone https://github.com/YuthramysI/claude-study-kit && cd claude-study-kit
 claude --plugin-dir .         # ejecuta Claude Code con el plugin cargado desde esta carpeta
 claude plugin validate .      # manifiesto y hooks
-claude plugin test .          # 95 tests: FSRS, Pomodoro, sesiones, logros, plan, simulacro, informe, PDF, mapas, panel
+claude plugin test .          # 100 tests: FSRS, Pomodoro, sesiones, logros, plan, simulacro, informe, PDF, mapas, panel
 ```
 
 | Archivo | Contenido |
@@ -292,6 +304,7 @@ claude plugin test .          # 95 tests: FSRS, Pomodoro, sesiones, logros, plan
 | `hooks/sesiones.ts` · `logros.ts` · `plan.ts` · `informe.ts` | Sesiones y diario, logros y niveles, plan de examen, informe semanal |
 | `hooks/cuadernos.ts` | Archivos, copias de seguridad y recuperación |
 | `hooks/motor.ts` | Enlace con el motor de Claude Code y estado de sesión |
+| `hooks/i18n.ts` | Idioma de la interfaz: `L('español', 'English')` y la detección |
 | `skills/*/SKILL.md` | preguntar, resumir, tarjetas, guía, mapa, quiz, simulacro, audio |
 
 Las contribuciones son bienvenidas: lee [CONTRIBUTING.md](CONTRIBUTING.md).

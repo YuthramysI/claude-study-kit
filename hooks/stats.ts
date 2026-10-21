@@ -1,6 +1,7 @@
 // Estadísticas de estudio, en funciones puras.
 import type { DiaStats, ResultadoExamen, Stats, Tarjeta } from '../types'
 import { sumarDias } from './srs'
+import { L } from './i18n'
 
 export const DIAS_GUARDADOS = 400
 
@@ -120,7 +121,7 @@ export function sparkline(valores: readonly number[]): string {
 }
 
 export function porcentaje(parte: number, total: number): string {
-  return total === 0 ? '—' : `${Math.round((parte / total) * 100)} %`
+  return total === 0 ? '—' : L(`${Math.round((parte / total) * 100)} %`, `${Math.round((parte / total) * 100)}%`)
 }
 
 export function horas(minutos: number): string {

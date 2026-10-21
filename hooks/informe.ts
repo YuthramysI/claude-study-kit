@@ -3,8 +3,9 @@ import type { Stats } from '../types'
 import { COLORES_TEMA } from './graficos'
 import * as lg from './logros'
 import { escapar } from './markdown'
-import { MESES, sumarDias } from './srs'
+import { nombreMes, sumarDias } from './srs'
 import * as stats from './stats'
+import { L } from './i18n'
 
 export const ANCHO = 1080
 export const ALTO = 1350
@@ -23,14 +24,14 @@ export type DatosInforme = {
   logros: Readonly<Record<string, string>>
 }
 
-const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
 function rango(lunes: string): string {
   const domingo = sumarDias(lunes, 6)
   const [, m1, d1] = lunes.split('-').map(Number)
   const [y2, m2, d2] = domingo.split('-').map(Number)
-  const mes = (m: number | undefined) => MESES[(m ?? 1) - 1] ?? ''
-  return m1 === m2 ? `${d1}–${d2} de ${mes(m2)} de ${y2}` : `${d1} de ${mes(m1)} – ${d2} de ${mes(m2)} de ${y2}`
+  const mes = (m: number | undefined) => nombreMes(m ?? 1)
+  if (m1 === m2) return L(`${d1}–${d2} de ${mes(m2)} de ${y2}`, `${mes(m2)} ${d1}–${d2}, ${y2}`)
+  return L(`${d1} de ${mes(m1)} – ${d2} de ${mes(m2)} de ${y2}`, `${mes(m1)} ${d1} – ${mes(m2)} ${d2}, ${y2}`)
 }
 
 /** Las estadísticas hasta el día anterior a `dia` (para la XP ganada en la semana). */
@@ -71,22 +72,22 @@ export function htmlInforme(d: DatosInforme): string {
     const alto = min === 0 ? 6 : Math.max(14, Math.round((min / max) * 140))
     const hoy = dia === d.hoy
     return `<div class="dia"><div class="valor">${min > 0 ? stats.horas(min).replace(' min', '′').replace(' h ', 'h') : ''}</div>` +
-      `<div class="barra${min === 0 ? ' vacia' : ''}${hoy ? ' hoy' : ''}" style="height:${alto}px"></div><div class="letra">${DIAS[i]}</div></div>`
+      `<div class="barra${min === 0 ? ' vacia' : ''}${hoy ? ' hoy' : ''}" style="height:${alto}px"></div><div class="letra">${L('LMXJVSD', 'MTWTFSS')[i] ?? ''}</div></div>`
   }).join('')
   const maxTema = Math.max(1, ...r.temas.map(t => t.minutos))
   const temas = r.temas.length === 0
-    ? '<div class="vacio">Pon una tarea a tus pomodoros para ver tus temas</div>'
+    ? `<div class="vacio">${L('Pon una tarea a tus pomodoros para ver tus temas', 'Give your pomodoros a task to see your topics')}</div>`
     : r.temas.map((t, i) => `<div class="tema"><span class="nombre">${escapar(t.tema)}</span>` +
       `<span class="pista"><span class="relleno" style="width:${Math.max(4, (t.minutos / maxTema) * 100)}%;background:${COLORES_TEMA[i % COLORES_TEMA.length]}"></span></span>` +
       `<span class="horas">${stats.horas(t.minutos)}</span></div>`).join('')
   const logros = r.logrosSemana.length === 0
-    ? `<div class="vacio">${r.diasActivos >= 5 ? '¡Constancia de campeón!' : 'Esta semana, a por el próximo logro'}</div>`
+    ? `<div class="vacio">${r.diasActivos >= 5 ? L('¡Constancia de campeón!', 'Champion consistency!') : L('Esta semana, a por el próximo logro', 'Next week: go for the next achievement')}</div>`
     : r.logrosSemana.slice(0, 4).map(l => `<div class="logro"><span class="icono">${l.icono}</span>${escapar(l.nombre)}</div>`).join('')
   const progreso = Math.min(100, Math.max(0, ((lg.experiencia(d.stats, Object.keys(d.logros).length) - r.nivel.desde) / Math.max(1, r.nivel.hasta - r.nivel.desde)) * 100))
   const hora = r.mejoresHoras[0]
   const examen = r.examenes.length === 0 ? undefined : Math.max(...r.examenes.map(e => e.nota))
 
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><style>
+  return `<!doctype html><html lang="${L('es', 'en')}"><head><meta charset="utf-8"><style>
 * { box-sizing: border-box; margin: 0; }
 html, body { width: ${ANCHO}px; height: ${ALTO}px; }
 body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif; color: #FFF8F2;
@@ -125,25 +126,25 @@ h1 { font-size: 70px; line-height: 1; font-weight: 900; letter-spacing: -.02em; 
 .pie { margin-top: auto; display: flex; justify-content: space-between; color: #9C94AC; font-size: 21px; }
 .pie b { color: #FFF8F2; }
 </style></head><body>
-<div class="marca"><span>📚 Mi semana de estudio</span><span class="nivel">⭐ Nivel ${r.nivel.nivel} · ${escapar(r.nivel.titulo)}</span></div>
-<div><h1>${stats.horas(r.total.minutos)}<br>de enfoque</h1><div class="rango">${escapar(rango(d.lunes))}</div></div>
+<div class="marca"><span>📚 ${L('Mi semana de estudio', 'My study week')}</span><span class="nivel">⭐ ${L('Nivel', 'Level')} ${r.nivel.nivel} · ${escapar(r.nivel.titulo)}</span></div>
+<div><h1>${stats.horas(r.total.minutos)}<br>${L('de enfoque', 'of focus')}</h1><div class="rango">${escapar(rango(d.lunes))}</div></div>
 <div class="cifras">
   <div class="cifra c1"><div class="n">${r.total.pomodoros} 🍅</div><div class="t">pomodoros</div></div>
-  <div class="cifra c2"><div class="n">🔥 ${r.racha}</div><div class="t">${r.racha === 1 ? 'día de racha' : 'días de racha'}</div></div>
-  <div class="cifra c3"><div class="n">${r.total.repasos}</div><div class="t">tarjetas repasadas</div></div>
-  <div class="cifra c4"><div class="n">${stats.porcentaje(r.total.aciertos, r.total.repasos)}</div><div class="t">de aciertos</div></div>
+  <div class="cifra c2"><div class="n">🔥 ${r.racha}</div><div class="t">${r.racha === 1 ? L('día de racha', 'day streak') : L('días de racha', 'day streak')}</div></div>
+  <div class="cifra c3"><div class="n">${r.total.repasos}</div><div class="t">${L('tarjetas repasadas', 'cards reviewed')}</div></div>
+  <div class="cifra c4"><div class="n">${stats.porcentaje(r.total.aciertos, r.total.repasos)}</div><div class="t">${L('de aciertos', 'correct')}</div></div>
 </div>
 <div class="fila">
-  <div class="panel"><h2>Enfoque por día</h2><div class="dias">${barras}</div></div>
+  <div class="panel"><h2>${L('Enfoque por día', 'Focus per day')}</h2><div class="dias">${barras}</div></div>
   <div class="panel lateral">
-    <div class="dato"><b>${r.diasActivos}</b>/7 días activos</div>
-    <div class="dato">${hora !== undefined ? `⭐ <b>${hora.hora}–${hora.hora + 1} h</b> tu mejor hora` : '⭐ Aún sin mejor hora'}</div>
-    ${examen !== undefined ? `<div class="dato">📝 <b>${examen.toFixed(1)}</b>/10 en simulacro</div>` : ''}
+    <div class="dato"><b>${r.diasActivos}</b>/7 ${L('días activos', 'active days')}</div>
+    <div class="dato">${hora !== undefined ? `⭐ <b>${hora.hora}–${hora.hora + 1} h</b> ${L('tu mejor hora', 'your best hour')}` : `⭐ ${L('Aún sin mejor hora', 'No best hour yet')}`}</div>
+    ${examen !== undefined ? `<div class="dato">📝 <b>${examen.toFixed(1)}</b>/10 ${L('en simulacro', 'on a mock exam')}</div>` : ''}
     <div class="dato">+<b>${r.xpSemana}</b> XP<div class="xp"><span></span></div></div>
   </div>
 </div>
-<div class="panel"><h2>Temas</h2><div class="temas">${temas}</div></div>
-<div class="panel"><h2>🏆 Logros de la semana</h2><div class="logros">${logros}</div></div>
-<div class="pie"><span>Hecho con <b>claude-study-kit</b> · el plugin de estudio para Claude Code</span><span>${escapar(d.hoy)}</span></div>
+<div class="panel"><h2>${L('Temas', 'Topics')}</h2><div class="temas">${temas}</div></div>
+<div class="panel"><h2>🏆 ${L('Logros de la semana', 'Achievements this week')}</h2><div class="logros">${logros}</div></div>
+<div class="pie"><span>${L('Hecho con <b>claude-study-kit</b> · el plugin de estudio para Claude Code', 'Made with <b>claude-study-kit</b> · the study plugin for Claude Code')}</span><span>${escapar(d.hoy)}</span></div>
 </body></html>`
 }

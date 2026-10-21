@@ -1,11 +1,20 @@
 // Plan de examen: cuenta atrás, meta diaria y previsión de lo que recordarás ese día.
 import type { PlanExamen, Stats, Tarjeta } from '../types'
-import { diasEntre, esNueva, fecha, MESES, memoria, retencionTras, sumarDias } from './srs'
+import { diasEntre, esNueva, fecha, MESES, MESES_EN, memoria, retencionTras, sumarDias } from './srs'
+import { L } from './i18n'
 
 export const META_POMODOROS = 4
 /** Días antes del examen en que ya deberías haber visto todas las tarjetas. */
 const COLCHON = 2
 
+
+/** El número de mes (1–12) de un nombre en español o en inglés, completo o abreviado; 0 si no lo es. */
+const mesDe = (nombre: string) => {
+  const p = nombre.slice(0, 3)
+  if (p.length < 3) return 0
+  const es = MESES.findIndex(n => n.startsWith(p)) + 1
+  return es > 0 ? es : MESES_EN.findIndex(n => n.toLowerCase().startsWith(p)) + 1
+}
 
 const valida = (y: number, m: number, d: number) => {
   const f = new Date(y, m - 1, d)
@@ -13,7 +22,7 @@ const valida = (y: number, m: number, d: number) => {
 }
 
 /**
- * Lee una fecha escrita a mano: «2026-11-15», «15/11», «15/11/2026», «15-11»,
+ * Lee una fecha escrita a mano: «2026-11-15», «15/11», «15/11/2026», «15-11», «11/15»,
  * «15 de noviembre», «en 20 días», «mañana». Sin año, la próxima vez que llegue.
  */
 export function interpretarFecha(texto: string, hoy: string): string | undefined {
@@ -23,20 +32,29 @@ export function interpretarFecha(texto: string, hoy: string): string | undefined
     const este = valida(anio, m, d)
     return este !== undefined && este >= hoy ? este : valida(anio + 1, m, d)
   }
-  if (t === 'hoy') return hoy
-  if (t === 'manana') return sumarDias(hoy, 1)
+  if (t === 'hoy' || t === 'today') return hoy
+  if (t === 'manana' || t === 'tomorrow') return sumarDias(hoy, 1)
   let x = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t)
   if (x) return valida(Number(x[1]), Number(x[2]), Number(x[3]))
   x = /^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?$/.exec(t)
   if (x) {
     const y = x[3] === undefined ? undefined : Number(x[3].length === 2 ? `20${x[3]}` : x[3])
-    return y === undefined ? futura(Number(x[2]), Number(x[1])) : valida(y, Number(x[2]), Number(x[1]))
+    // día/mes, salvo que solo pueda ser mes/día («11/15», al estilo de EE. UU.)
+    const [d, m] = Number(x[2]) > 12 && Number(x[1]) <= 12 ? [Number(x[2]), Number(x[1])] : [Number(x[1]), Number(x[2])]
+    return y === undefined ? futura(m, d) : valida(y, m, d)
   }
-  x = /^en\s+(\d{1,3})\s+(dias?|semanas?)$/.exec(t)
-  if (x) return sumarDias(hoy, Number(x[1]) * (x[2]?.startsWith('semana') ? 7 : 1))
+  x = /^(?:en|in)\s+(\d{1,3})\s+(dias?|days?|semanas?|weeks?)$/.exec(t)
+  if (x) return sumarDias(hoy, Number(x[1]) * (x[2]?.startsWith('semana') || x[2]?.startsWith('week') ? 7 : 1))
+  // inglés: «November 15», «Nov 15 2026»
+  x = /^([a-z]+)\s+(\d{1,2})(?:,?\s+(\d{4}))?$/.exec(t)
+  if (x) {
+    const m = mesDe(x[1] ?? '')
+    if (m === 0) return undefined
+    return x[3] === undefined ? futura(m, Number(x[2])) : valida(Number(x[3]), m, Number(x[2]))
+  }
   x = /^(\d{1,2})\s+(?:de\s+)?([a-z]+)(?:\s+(?:de\s+)?(\d{4}))?$/.exec(t)
   if (x) {
-    const m = MESES.findIndex(n => n.startsWith(x?.[2]?.slice(0, 3) ?? '-')) + 1
+    const m = mesDe(x[2] ?? '')
     if (m === 0) return undefined
     return x[3] === undefined ? futura(m, Number(x[1])) : valida(Number(x[3]), m, Number(x[1]))
   }
@@ -81,20 +99,20 @@ export function estado(plan: PlanExamen, tarjetas: readonly Tarjeta[], stats: St
   let mensaje: string
   if (dias < 0) {
     ritmo = 'pasado'
-    mensaje = 'El examen ya pasó. Fija el siguiente con /examen <fecha>.'
+    mensaje = L('El examen ya pasó. Fija el siguiente con /examen <fecha>.', 'The exam is over. Set the next one with /examen <date>.')
   } else if (total > 0 && nuevas === 0 && prevision >= 85) {
     ritmo = 'listo'
-    mensaje = `Lo tienes: previsión del ${prevision} %. Mantén los repasos diarios.`
+    mensaje = L(`Lo tienes: previsión del ${prevision} %. Mantén los repasos diarios.`, `You've got it: ${prevision}% forecast. Keep up the daily reviews.`)
   } else if (faltanHoy > 0 || pomodorosHoy < metaPomodoros) {
     ritmo = dias <= 3 && (nuevas > 0 || prevision < 70) ? 'atrasado' : 'bien'
     const partes = [
-      ...(faltanHoy > 0 ? [`${faltanHoy} ${faltanHoy === 1 ? 'tarjeta nueva' : 'tarjetas nuevas'}`] : []),
+      ...(faltanHoy > 0 ? [`${faltanHoy} ${faltanHoy === 1 ? L('tarjeta nueva', 'new card') : L('tarjetas nuevas', 'new cards')}`] : []),
       ...(pomodorosHoy < metaPomodoros ? [`${metaPomodoros - pomodorosHoy} 🍅`] : []),
     ]
-    mensaje = `Hoy te faltan ${partes.join(' y ')}.`
+    mensaje = L(`Hoy te faltan ${partes.join(' y ')}.`, `Still to do today: ${partes.join(' and ')}.`)
   } else {
     ritmo = 'bien'
-    mensaje = '¡Meta de hoy cumplida! 🎉'
+    mensaje = L('¡Meta de hoy cumplida! 🎉', 'Today\'s goal done! 🎉')
   }
   return { dias, nuevas, nuevasPorDia, empezadasHoy, vistas, prevision, pomodorosHoy, metaPomodoros, ritmo, mensaje }
 }

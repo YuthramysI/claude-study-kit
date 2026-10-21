@@ -2,6 +2,7 @@
 import type { InfoCuaderno, PlanExamen, Tarjeta } from '../types'
 import { sanear as sanearPlan } from './plan'
 import type { Host } from './host'
+import { L } from './i18n'
 
 const CLAVE_ACTIVO = 'cuadernoActivo'
 const EXTENSIONES = /\.(pdf|md|markdown|txt|text|html?|csv|json|tex|rst|org|docx?|pptx?|png|jpe?g|webp)$/i
@@ -35,11 +36,11 @@ export async function crear(h: Host, base: string, nombre: string): Promise<stri
   if (!(await h.fs.exists(`${ruta}/fuentes/.leeme`))) {
     await h.fs.write(
       `${ruta}/fuentes/.leeme`,
-      'Pon aquí tus materiales: PDF, Markdown, texto, imágenes de apuntes...\n',
+      L('Pon aquí tus materiales: PDF, Markdown, texto, imágenes de apuntes...\n', 'Put your materials here: PDF, Markdown, text, photos of notes...\n'),
     )
   }
   if (!(await h.fs.exists(`${ruta}/salidas/.leeme`))) {
-    await h.fs.write(`${ruta}/salidas/.leeme`, 'Aquí guarda Claude las guías, quizzes y guiones.\n')
+    await h.fs.write(`${ruta}/salidas/.leeme`, L('Aquí guarda Claude las guías, quizzes y guiones.\n', 'Claude saves guides, quizzes and scripts here.\n'))
   }
   if (!(await h.fs.exists(`${ruta}/tarjetas.json`))) {
     await h.fs.write(`${ruta}/tarjetas.json`, '[]\n')
@@ -118,12 +119,18 @@ export async function leerTarjetas(h: Host, ruta: string): Promise<Lectura> {
     await h.fs.write(archivo, JSON.stringify(recuperadas, null, 2) + '\n')
     return {
       tarjetas: recuperadas,
-      aviso: `tarjetas.json estaba dañado: recuperé ${recuperadas.length} tarjetas de ${copia.slice(ruta.length + 1)}. El archivo dañado quedó en ${danado.slice(ruta.length + 1)}.`,
+      aviso: L(
+        `tarjetas.json estaba dañado: recuperé ${recuperadas.length} tarjetas de ${copia.slice(ruta.length + 1)}. El archivo dañado quedó en ${danado.slice(ruta.length + 1)}.`,
+        `tarjetas.json was damaged: recovered ${recuperadas.length} cards from ${copia.slice(ruta.length + 1)}. The damaged file was kept as ${danado.slice(ruta.length + 1)}.`,
+      ),
     }
   }
   return {
     tarjetas: [],
-    aviso: `tarjetas.json está dañado y no hay copia de seguridad válida. Lo guardé en ${danado.slice(ruta.length + 1)}; revísalo a mano.`,
+    aviso: L(
+      `tarjetas.json está dañado y no hay copia de seguridad válida. Lo guardé en ${danado.slice(ruta.length + 1)}; revísalo a mano.`,
+      `tarjetas.json is damaged and there is no valid backup. It was saved as ${danado.slice(ruta.length + 1)}; check it by hand.`,
+    ),
   }
 }
 

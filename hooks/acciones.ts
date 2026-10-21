@@ -15,6 +15,7 @@ import * as ses from './sesiones'
 import { fecha, fechaLarga, fusionar, nuevasEnEspera, pendientes, programar, pronostico, sumarDias } from './srs'
 import type { Nota } from './srs'
 import * as stats from './stats'
+import { idioma, L } from './i18n'
 
 const CLAVE_STATS = 'estadisticas'
 const CLAVE_HISTORIAL_ANTIGUO = 'historialPomodoros'
@@ -63,12 +64,12 @@ export async function pomodoro(h: Host, cfg: Config, verbo: VerboPomodoro, minut
   await h.storeSet(CLAVE_POMODORO, p)
   await h.st.ahora.cambiar(() => ahora)
   h.status(pomo.lineaEstado(p, ahora))
-  if (verbo === 'saltar') return `Saltado. Ahora: ${pomo.NOMBRE_FASE[p.fase]}${p.estado === 'parado' ? ' (pulsa iniciar)' : ''}.`
+  if (verbo === 'saltar') return L(`Saltado. Ahora: ${pomo.NOMBRE_FASE[p.fase]}${p.estado === 'parado' ? ' (pulsa iniciar)' : ''}.`, `Skipped. Now: ${pomo.NOMBRE_FASE[p.fase]}${p.estado === 'parado' ? ' (press start)' : ''}.`)
   return describirPomodoro(p, ahora)
 }
 
 export function describirPomodoro(p: Pomodoro, ahora: number): string {
-  if (p.estado === 'parado') return `Pomodoro parado. Siguiente: ${pomo.NOMBRE_FASE[p.fase]}.`
+  if (p.estado === 'parado') return L(`Pomodoro parado. Siguiente: ${pomo.NOMBRE_FASE[p.fase]}.`, `Pomodoro stopped. Next: ${pomo.NOMBRE_FASE[p.fase]}.`)
   return pomo.lineaEstado(p, ahora) ?? ''
 }
 
@@ -176,10 +177,11 @@ async function latido(h: Host, cfg: Config) {
   h.status(await lineaDeEstado(h, p, ahora))
   if (completo) await sumar(h, cfg, ahora, { pomodoros: 1, minutos, temas: { [tareaHecha ?? TAREA_GENERAL]: minutos }, horas })
   const aviso = completo
-    ? `¡Pomodoro terminado${tareaHecha !== undefined ? ` (${tareaHecha})` : ''}! 🍅 Toca ${pomo.NOMBRE_FASE[p.fase]} de ${Math.round(p.duracionMs / 60_000)} min.`
+    ? L(`¡Pomodoro terminado${tareaHecha !== undefined ? ` (${tareaHecha})` : ''}! 🍅 Toca ${pomo.NOMBRE_FASE[p.fase]} de ${Math.round(p.duracionMs / 60_000)} min.`,
+      `Pomodoro done${tareaHecha !== undefined ? ` (${tareaHecha})` : ''}! 🍅 Time for a ${Math.round(p.duracionMs / 60_000)}-min ${pomo.NOMBRE_FASE[p.fase]}.`)
     : p.estado === 'corriendo'
-      ? `¡Fin del descanso! Empieza el siguiente pomodoro (${Math.round(p.duracionMs / 60_000)} min).`
-      : '¡Fin del descanso! Cuando quieras, inicia el siguiente pomodoro.'
+      ? L(`¡Fin del descanso! Empieza el siguiente pomodoro (${Math.round(p.duracionMs / 60_000)} min).`, `Break over! The next pomodoro starts now (${Math.round(p.duracionMs / 60_000)} min).`)
+      : L('¡Fin del descanso! Cuando quieras, inicia el siguiente pomodoro.', 'Break over! Start the next pomodoro whenever you\'re ready.')
   pulso.fases++
   avisar(h, cfg, aviso)
 }
@@ -196,29 +198,30 @@ function avisar(h: Host, cfg: Config, aviso: string) {
 export async function probarAvisos(h: Host, cfg: Config): Promise<string> {
   const ahora = await h.now()
   const p = await h.st.pomodoro.leer()
-  h.linea('🔔 Prueba de aviso del Pomodoro')
-  h.toast('🔔 Prueba de aviso del Pomodoro', 8000)
-  const notif = await h.notify('Prueba de aviso del Pomodoro').then(
-    r => (r.isSent ? `enviada (${r.channel})` : `no enviada: ${r.reason}`),
+  const prueba = L('Prueba de aviso del Pomodoro', 'Pomodoro alert test')
+  h.linea(`🔔 ${prueba}`)
+  h.toast(`🔔 ${prueba}`, 8000)
+  const notif = await h.notify(prueba).then(
+    r => (r.isSent ? L(`enviada (${r.channel})`, `sent (${r.channel})`) : L(`no enviada: ${r.reason}`, `not sent: ${r.reason}`)),
     err => `error: ${String(err)}`,
   )
   const archivo = `${h.pluginRoot}/sounds/campana.wav`
   const sonido = await h.run(['paplay', `--volume=${Math.round((cfg.volumen / 100) * 65536)}`, archivo], { timeoutMs: 10_000 }).then(
-    r => (r.exitCode === 0 ? 'sonó (paplay)' : `paplay falló (${r.exitCode}): ${r.stderr.trim().slice(0, 120)}`),
-    err => `no se pudo ejecutar paplay: ${String(err)}`,
+    r => (r.exitCode === 0 ? L('sonó (paplay)', 'played (paplay)') : L(`paplay falló (${r.exitCode})`, `paplay failed (${r.exitCode})`) + `: ${r.stderr.trim().slice(0, 120)}`),
+    err => `${L('no se pudo ejecutar paplay', 'could not run paplay')}: ${String(err)}`,
   )
-  const hace = pulso.ultimo === 0 ? 'nunca' : `hace ${Math.max(0, Math.round((ahora - pulso.ultimo) / 1000))} s`
+  const hace = pulso.ultimo === 0 ? L('nunca', 'never') : L(`hace ${Math.max(0, Math.round((ahora - pulso.ultimo) / 1000))} s`, `${Math.max(0, Math.round((ahora - pulso.ultimo) / 1000))} s ago`)
   const arr = arranque.inicio === 0
-    ? 'session.start no se ejecutó en este módulo'
-    : `session.start ${arranque.fin === 0 ? 'NO terminó' : 'terminó'}; latido: ${arranque.latido}` +
-      (arranque.errores.length > 0 ? `; fallos: ${arranque.errores.join(' · ')}` : '; sin fallos')
+    ? L('session.start no se ejecutó en este módulo', 'session.start did not run in this module')
+    : `session.start ${arranque.fin === 0 ? L('NO terminó', 'did NOT finish') : L('terminó', 'finished')}; ${L('latido', 'tick')}: ${arranque.latido}` +
+      (arranque.errores.length > 0 ? `; ${L('fallos', 'failures')}: ${arranque.errores.join(' · ')}` : L('; sin fallos', '; no failures'))
   return [
-    'Diagnóstico de avisos:',
-    `  sonido: ${sonido}${cfg.sonido ? '' : ' (la alarma está desactivada en /config)'}`,
-    `  notificación del sistema: ${notif}`,
-    '  aviso flotante y línea en el chat: enviados (¿ves «🔔 Prueba de aviso» arriba?)',
-    `  temporizador: ${pulso.latidos} latidos, último ${hace}; ${pulso.fases} cambios de fase en este módulo${pulso.ultimoError ? `; último error: ${pulso.ultimoError}` : ''}`,
-    `  arranque: ${arr}`,
+    L('Diagnóstico de avisos:', 'Alert diagnostics:'),
+    `  ${L('sonido', 'sound')}: ${sonido}${cfg.sonido ? '' : L(' (la alarma está desactivada en /config)', ' (the alarm is off in /config)')}`,
+    `  ${L('notificación del sistema', 'system notification')}: ${notif}`,
+    L('  aviso flotante y línea en el chat: enviados (¿ves «🔔 Prueba de aviso» arriba?)', '  toast and chat line: sent (do you see «🔔 Pomodoro alert test» above?)'),
+    `  ${L('temporizador', 'timer')}: ${pulso.latidos} ${L('latidos', 'ticks')}, ${L('último', 'last')} ${hace}; ${pulso.fases} ${L('cambios de fase en este módulo', 'phase changes in this module')}${pulso.ultimoError ? `; ${L('último error', 'last error')}: ${pulso.ultimoError}` : ''}`,
+    `  ${L('arranque', 'startup')}: ${arr}`,
     `  pomodoro: ${describirPomodoro(p, ahora)}`,
   ].join('\n')
 }
@@ -243,7 +246,7 @@ function campana(h: Host, cfg: Pick<Config, 'toquesAlarma' | 'volumen'>) {
 /** Fija la tarea del pomodoro (el actual y los siguientes) y la apunta entre las recientes. */
 export async function fijarTarea(h: Host, texto: string): Promise<string> {
   const tarea = texto.replace(/\s+/g, ' ').trim().slice(0, 40)
-  if (tarea === '') return 'Escribe en qué vas a trabajar.'
+  if (tarea === '') return L('Escribe en qué vas a trabajar.', 'Type what you are going to work on.')
   const ahora = await h.now()
   const p = await h.st.pomodoro.cambiar(p => ({ ...p, tarea }))
   await h.storeSet(CLAVE_POMODORO, p)
@@ -251,7 +254,7 @@ export async function fijarTarea(h: Host, texto: string): Promise<string> {
   await h.storeSet(CLAVE_TAREAS, recientes)
   await h.st.editandoTarea.cambiar(() => false)
   h.status(pomo.lineaEstado(p, ahora))
-  return `📌 Tarea: ${tarea}`
+  return `📌 ${L('Tarea', 'Task')}: ${tarea}`
 }
 
 export async function cargarTareas(h: Host) {
@@ -339,9 +342,9 @@ export async function comprobarLogros(h: Host, avisar = true) {
   if (!avisar) return
   const nivelAhora = lg.nivel(lg.experiencia(datos.stats, Object.keys(despues).length))
   const texto = nuevos.length === 1
-    ? `🏆 ¡Logro desbloqueado! ${nuevos[0]?.icono} ${nuevos[0]?.nombre}: ${nuevos[0]?.descripcion}`
-    : `🏆 ¡${nuevos.length} logros desbloqueados! ${nuevos.map(x => `${x.icono} ${x.nombre}`).join(' · ')}`
-  const nivel = nivelAhora.nivel > nivelAntes ? ` ⬆️ Subes al nivel ${nivelAhora.nivel}: ${nivelAhora.titulo}.` : ''
+    ? `🏆 ${L('¡Logro desbloqueado!', 'Achievement unlocked!')} ${nuevos[0]?.icono} ${nuevos[0]?.nombre}: ${nuevos[0]?.descripcion}`
+    : `🏆 ${L(`¡${nuevos.length} logros desbloqueados!`, `${nuevos.length} achievements unlocked!`)} ${nuevos.map(x => `${x.icono} ${x.nombre}`).join(' · ')}`
+  const nivel = nivelAhora.nivel > nivelAntes ? ` ⬆️ ${L(`Subes al nivel ${nivelAhora.nivel}: ${nivelAhora.titulo}.`, `Level up: ${nivelAhora.nivel}, ${nivelAhora.titulo}.`)}` : ''
   h.toast(`${texto}${nivel}`, 10_000)
   h.linea(`${texto}${nivel}`)
 }
@@ -421,6 +424,7 @@ export async function datosEstudio(h: Host, cfg: Config) {
   const actual = await h.st.sesion.leer()
   const aciertos = stats.aciertosPorDia(s, hoy, 14).filter((x): x is number => x !== null)
   return {
+    idioma: idioma(),
     hoy: { dia: hoy, ...(s[hoy] ?? stats.VACIO) },
     ultimos7dias: stats.totales(s, semana[0]?.dia),
     racha: stats.racha(s, hoy),
@@ -453,14 +457,14 @@ export async function resumenSesion(h: Host, cfg: Config, conCoach = true): Prom
   const ultima = actual !== null && !ses.vacia(actual) ? actual : (await h.st.sesiones.leer())[0]
   const d = (await h.st.stats.leer())[hoy] ?? stats.VACIO
   const partes = [
-    ultima === undefined ? '📝 Aún no hay sesiones de estudio registradas.' : `${ses.resumen(ultima)}${ses.abierta(actual, ahora) ? '  (en curso)' : ''}`,
-    `📅 Hoy: ${d.pomodoros} 🍅 · ${stats.horas(d.minutos)} · ${d.repasos} tarjetas (${stats.porcentaje(d.aciertos, d.repasos)})`,
+    ultima === undefined ? L('📝 Aún no hay sesiones de estudio registradas.', '📝 No study sessions recorded yet.') : `${ses.resumen(ultima)}${ses.abierta(actual, ahora) ? L('  (en curso)', '  (ongoing)') : ''}`,
+    `📅 ${L('Hoy', 'Today')}: ${d.pomodoros} 🍅 · ${stats.horas(d.minutos)} · ${d.repasos} ${L('tarjetas', 'cards')} (${stats.porcentaje(d.aciertos, d.repasos)})`,
   ]
   if (conCoach) {
     const consejo = await h.completar({
       maxTokens: 260,
       system:
-        'Eres un coach de estudio cercano y concreto. Con los datos (JSON) del estudiante, escribe en español 2 o 3 viñetas ' +
+        `Eres un coach de estudio cercano y concreto. Con los datos (JSON) del estudiante, escribe ${L('en español', 'in English')} 2 o 3 viñetas ` +
         'que empiecen por «- »: una sobre lo que hizo bien, y una o dos acciones concretas para mañana (qué repasar, cuánto, a qué hora). ' +
         'Máximo 70 palabras en total. Usa números de los datos. Nada de saludos ni despedidas.',
       prompt: JSON.stringify(await datosEstudio(h, cfg)),
@@ -471,7 +475,7 @@ export async function resumenSesion(h: Host, cfg: Config, conCoach = true): Prom
     }
   }
   const ruta = await escribirDiario(h, cfg, hoy)
-  partes.push(`📓 Diario: ${ruta}`)
+  partes.push(`📓 ${L('Diario', 'Journal')}: ${ruta}`)
   return partes.join('\n')
 }
 
@@ -484,14 +488,14 @@ export async function textoStats(h: Host): Promise<string> {
   const ultimos = stats.ultimosDias(s, hoy, 28)
   const racha = stats.racha(s, hoy)
   return [
-    `🔥 Racha: ${racha} ${racha === 1 ? 'día' : 'días'} (mejor: ${stats.mejorRacha(s)})`,
-    `Hoy: ${dia.pomodoros} 🍅 · ${stats.horas(dia.minutos)} · ${dia.repasos} tarjetas (${stats.porcentaje(dia.aciertos, dia.repasos)} aciertos)`,
-    `7 días: ${semana.pomodoros} 🍅 · ${stats.horas(semana.minutos)} · ${semana.repasos} tarjetas`,
-    `Total: ${total.pomodoros} 🍅 · ${stats.horas(total.minutos)} · ${total.repasos} tarjetas`,
-    `28 días: ${stats.sparkline(ultimos.map(d => d.datos.minutos + d.datos.repasos))}`,
+    `🔥 ${L('Racha', 'Streak')}: ${racha} ${racha === 1 ? L('día', 'day') : L('días', 'days')} (${L('mejor', 'best')}: ${stats.mejorRacha(s)})`,
+    `${L('Hoy', 'Today')}: ${dia.pomodoros} 🍅 · ${stats.horas(dia.minutos)} · ${dia.repasos} ${L('tarjetas', 'cards')} (${stats.porcentaje(dia.aciertos, dia.repasos)} ${L('aciertos', 'correct')})`,
+    `${L('7 días', '7 days')}: ${semana.pomodoros} 🍅 · ${stats.horas(semana.minutos)} · ${semana.repasos} ${L('tarjetas', 'cards')}`,
+    `Total: ${total.pomodoros} 🍅 · ${stats.horas(total.minutos)} · ${total.repasos} ${L('tarjetas', 'cards')}`,
+    `${L('28 días', '28 days')}: ${stats.sparkline(ultimos.map(d => d.datos.minutos + d.datos.repasos))}`,
     ...(() => {
       const top = stats.temas(s, stats.ultimosDias(s, hoy, 7)[0]?.dia).slice(0, 5)
-      return top.length === 0 ? [] : [`Por tema (7 días): ${top.map(t => `${t.tema} ${stats.horas(t.minutos)}`).join(' · ')}`]
+      return top.length === 0 ? [] : [`${L('Por tema (7 días)', 'By topic (7 days)')}: ${top.map(t => `${t.tema} ${stats.horas(t.minutos)}`).join(' · ')}`]
     })(),
   ].join('\n')
 }
@@ -516,22 +520,22 @@ export async function cronometroSimulacro(h: Host, accion: string, minutos?: num
     await h.st.simulacro.cambiar(() => s)
     await h.storeSet(CLAVE_SIMULACRO, s)
     h.status(await lineaDeEstado(h, await h.st.pomodoro.leer(), ahora))
-    return `Cronómetro iniciado: ${min} min para ${s.preguntas} preguntas. Se ve en la barra de estado.`
+    return L(`Cronómetro iniciado: ${min} min para ${s.preguntas} preguntas. Se ve en la barra de estado.`, `Timer started: ${min} min for ${s.preguntas} questions. It shows in the status line.`)
   }
-  if (actual === null) return 'No hay ningún simulacro en curso.'
+  if (actual === null) return L('No hay ningún simulacro en curso.', 'No mock exam in progress.')
   const usados = Math.round((ahora - actual.inicio) / 60_000)
   if (accion === 'parar') {
     await h.st.simulacro.cambiar(() => null)
     await h.storeSet(CLAVE_SIMULACRO, null)
     h.status(pomo.lineaEstado(await h.st.pomodoro.leer(), ahora))
-    return `Cronómetro parado: ${usados} de ${actual.minutos} min${ahora > actual.terminaEn ? ' (se pasó del tiempo)' : ''}.`
+    return L(`Cronómetro parado: ${usados} de ${actual.minutos} min${ahora > actual.terminaEn ? ' (se pasó del tiempo)' : ''}.`, `Timer stopped: ${usados} of ${actual.minutos} min${ahora > actual.terminaEn ? ' (over time)' : ''}.`)
   }
   return lineaSimulacro(actual, ahora) ?? ''
 }
 
 export function lineaSimulacro(s: Simulacro, ahora: number): string | undefined {
   const resta = s.terminaEn - ahora
-  return resta > 0 ? `📝 Simulacro ${pomo.reloj(resta)}` : '📝 Simulacro: ¡tiempo!'
+  return resta > 0 ? `📝 ${L('Simulacro', 'Mock exam')} ${pomo.reloj(resta)}` : L('📝 Simulacro: ¡tiempo!', '📝 Mock exam: time!')
 }
 
 /** Desde el latido: mueve el cronómetro y avisa una vez al acabar el tiempo. */
@@ -540,7 +544,7 @@ async function latidoSimulacro(h: Host, cfg: Config, ahora: number) {
   if (s === null || ahora < s.terminaEn || s.avisado) return
   const marcado = await h.st.simulacro.cambiar(x => (x === null ? x : { ...x, avisado: true }))
   await h.storeSet(CLAVE_SIMULACRO, marcado)
-  const aviso = '⏰ ¡Tiempo del simulacro! Termina la pregunta en curso y pide la corrección.'
+  const aviso = L('⏰ ¡Tiempo del simulacro! Termina la pregunta en curso y pide la corrección.', '⏰ Mock exam time is up! Finish the current question and ask for grading.')
   h.toast(aviso, 10_000)
   h.linea(aviso)
   if (cfg.sonido) campana(h, cfg)
@@ -556,8 +560,11 @@ export async function registrarExamen(h: Host, cfg: Config, nota: number, pregun
   await sumar(h, cfg, ahora, { examenes: [{ nota: valor, preguntas: Math.max(1, Math.round(preguntas)), cuaderno: info?.nombre ?? '', ...(titulo !== undefined && titulo.trim() !== '' ? { titulo: titulo.trim().slice(0, 80) } : {}) }] })
   await h.st.simulacro.cambiar(() => null)
   await h.storeSet(CLAVE_SIMULACRO, null)
-  const comparacion = previa === undefined ? 'Es tu primer simulacro de este cuaderno.' : `${valor >= previa.nota ? '⬆️' : '⬇️'} ${valor >= previa.nota ? '+' : ''}${(valor - previa.nota).toFixed(1)} respecto al anterior (${previa.nota.toFixed(1)}).`
-  return `📝 Nota guardada: ${valor.toFixed(1)}/10. ${comparacion} La evolución se ve en 📊 Stats.`
+  const diferencia = previa === undefined ? '' : `${valor >= previa.nota ? '⬆️' : '⬇️'} ${valor >= previa.nota ? '+' : ''}${(valor - previa.nota).toFixed(1)}`
+  const comparacion = previa === undefined
+    ? L('Es tu primer simulacro de este cuaderno.', 'It is your first mock exam in this notebook.')
+    : L(`${diferencia} respecto al anterior (${previa.nota.toFixed(1)}).`, `${diferencia} vs. the previous one (${previa.nota.toFixed(1)}).`)
+  return L(`📝 Nota guardada: ${valor.toFixed(1)}/10. ${comparacion} La evolución se ve en 📊 Stats.`, `📝 Score saved: ${valor.toFixed(1)}/10. ${comparacion} See your progress in 📊 Stats.`)
 }
 
 // ── Plan de examen ──────────────────────────────────────────────────────────
@@ -574,12 +581,12 @@ export async function estadoPlan(h: Host): Promise<(plan.EstadoPlan & PlanExamen
 }
 
 export function textoPlan(e: plan.EstadoPlan & PlanExamen): string {
-  const cuando = e.dias === 0 ? '¡hoy!' : e.dias === 1 ? 'mañana' : e.dias < 0 ? `hace ${-e.dias} días` : `en ${e.dias} días`
+  const cuando = e.dias === 0 ? L('¡hoy!', 'today!') : e.dias === 1 ? L('mañana', 'tomorrow') : e.dias < 0 ? L(`hace ${-e.dias} días`, `${-e.dias} days ago`) : L(`en ${e.dias} días`, `in ${e.dias} days`)
   return [
-    `🎯 ${e.titulo ?? 'Examen'}: ${fechaLarga(e.examen)} (${cuando})`,
-    `  📚 vistas ${e.vistas} % · ${e.nuevas} nuevas por empezar${e.nuevasPorDia > 0 ? ` (${e.nuevasPorDia}/día)` : ''}`,
-    `  🧠 previsión de recuerdo el día del examen: ${e.prevision} %`,
-    `  🍅 hoy ${e.pomodorosHoy}/${e.metaPomodoros} pomodoros`,
+    `🎯 ${e.titulo ?? L('Examen', 'Exam')}: ${fechaLarga(e.examen)} (${cuando})`,
+    `  📚 ${L('vistas', 'seen')} ${stats.porcentaje(e.vistas, 100)} · ${e.nuevas} ${L('nuevas por empezar', 'new to start')}${e.nuevasPorDia > 0 ? ` (${e.nuevasPorDia}/${L('día', 'day')})` : ''}`,
+    `  🧠 ${L('previsión de recuerdo el día del examen', 'recall forecast on exam day')}: ${stats.porcentaje(e.prevision, 100)}`,
+    `  🍅 ${L('hoy', 'today')} ${e.pomodorosHoy}/${e.metaPomodoros} pomodoros`,
     `  ${e.ritmo === 'atrasado' ? '⚠️' : e.ritmo === 'listo' ? '✅' : '👉'} ${e.mensaje}`,
   ].join('\n')
 }
@@ -594,12 +601,12 @@ export async function fijarPlanTexto(h: Host, cfg: Config, texto: string): Promi
   await h.st.editandoPlan.cambiar(() => false)
   if (palabras.length === 0) {
     const e = await estadoPlan(h)
-    return e === null ? 'Sin plan de examen. Fíjalo con /examen <fecha> [título]: «/examen 15/11 Bioquímica», «/examen en 20 días».' : textoPlan(e)
+    return e === null ? L('Sin plan de examen. Fíjalo con /examen <fecha> [título]: «/examen 15/11 Bioquímica», «/examen en 20 días».', 'No exam plan. Set one with /examen <date> [title]: «/examen 11/15 Biochemistry», «/examen in 20 days».') : textoPlan(e)
   }
-  if (['borrar', 'quitar', 'ninguno'].includes(primera)) return fijarPlan(h, cfg, null)
-  if (primera === 'meta') {
+  if (['borrar', 'quitar', 'ninguno', 'clear', 'delete', 'remove'].includes(primera)) return fijarPlan(h, cfg, null)
+  if (primera === 'meta' || primera === 'goal') {
     const n = Number(palabras[1])
-    if (!(n >= 1 && n <= 20)) return 'La meta va de 1 a 20 pomodoros al día: /examen meta 4'
+    if (!(n >= 1 && n <= 20)) return L('La meta va de 1 a 20 pomodoros al día: /examen meta 4', 'The goal goes from 1 to 20 pomodoros a day: /examen meta 4')
     return fijarPlan(h, cfg, { metaPomodoros: Math.round(n) })
   }
   const hoy = fecha(await h.now())
@@ -607,11 +614,11 @@ export async function fijarPlanTexto(h: Host, cfg: Config, texto: string): Promi
   for (let n = Math.min(4, palabras.length); n >= 1; n--) {
     const examen = plan.interpretarFecha(palabras.slice(0, n).join(' '), hoy)
     if (examen === undefined) continue
-    if (examen < hoy) return `${fechaLarga(examen)} ya pasó.`
+    if (examen < hoy) return L(`${fechaLarga(examen)} ya pasó.`, `${fechaLarga(examen)} is in the past.`)
     const titulo = palabras.slice(n).join(' ')
     return fijarPlan(h, cfg, { examen, ...(titulo !== '' ? { titulo } : {}) })
   }
-  return `No entiendo «${palabras.slice(0, 3).join(' ')}» como fecha. Prueba: 15/11, 2026-11-15, «15 de noviembre» o «en 20 días».`
+  return L(`No entiendo «${palabras.slice(0, 3).join(' ')}» como fecha. Prueba: 15/11, 2026-11-15, «15 de noviembre» o «en 20 días».`, `I can't read «${palabras.slice(0, 3).join(' ')}» as a date. Try: 2026-11-15, 15/11, «November 15» or «in 20 days».`)
 }
 
 export async function fijarPlan(h: Host, cfg: Config, cambio: { examen?: string; titulo?: string; metaPomodoros?: number } | null): Promise<string> {
@@ -619,18 +626,18 @@ export async function fijarPlan(h: Host, cfg: Config, cambio: { examen?: string;
   if (cambio === null) {
     await cuadernos.guardarPlan(h, info.ruta, null)
     await h.st.plan.cambiar(() => null)
-    return `Plan de examen de «${info.nombre}» quitado.`
+    return L(`Plan de examen de «${info.nombre}» quitado.`, `Exam plan for «${info.nombre}» removed.`)
   }
   const actual = await h.st.plan.leer()
   const examen = cambio.examen ?? actual?.examen
-  if (examen === undefined) return 'Indica la fecha: /examen 15/11 [título], /examen en 20 días…'
+  if (examen === undefined) return L('Indica la fecha: /examen 15/11 [título], /examen en 20 días…', 'Give the date: /examen 2026-11-15 [title], /examen in 20 days…')
   const nuevo = plan.sanear({ ...(actual ?? {}), ...cambio, examen })
-  if (nuevo === null) return 'No entiendo esa fecha.'
+  if (nuevo === null) return L('No entiendo esa fecha.', "I can't read that date.")
   await cuadernos.guardarPlan(h, info.ruta, nuevo)
   await h.st.plan.cambiar(() => nuevo)
   await refrescarCuaderno(h, cfg)
   const e = await estadoPlan(h)
-  return e === null ? 'Plan guardado.' : textoPlan(e)
+  return e === null ? L('Plan guardado.', 'Plan saved.') : textoPlan(e)
 }
 
 // ── Cuadernos ───────────────────────────────────────────────────────────────
@@ -668,9 +675,9 @@ export async function textoCuadernos(h: Host, cfg: Config): Promise<string> {
   const base = cuadernos.raiz(h, cfg.carpeta)
   const lista = await cuadernos.listar(h, base)
   const activo = await cuadernos.activo(h)
-  if (lista.length === 0) return `Aún no hay cuadernos en ${base}. Crea uno con /cuaderno <nombre>.`
+  if (lista.length === 0) return L(`Aún no hay cuadernos en ${base}. Crea uno con /cuaderno <nombre>.`, `No notebooks in ${base} yet. Create one with /cuaderno <name>.`)
   const filas = lista.map(n => `${n === activo ? '▶' : ' '} ${n}`).join('\n')
-  return `Cuadernos en ${base}:\n${filas}\n\nCambia con /cuaderno <nombre>.`
+  return L(`Cuadernos en ${base}:\n${filas}\n\nCambia con /cuaderno <nombre>.`, `Notebooks in ${base}:\n${filas}\n\nSwitch with /cuaderno <name>.`)
 }
 
 const anunciadas = new Set<string>()
@@ -689,7 +696,10 @@ export async function revisarFuentes(h: Host, cfg: Config) {
   if (porAvisar.length === 0) return
   for (const f of porAvisar) anunciadas.add(`${info.ruta}/${f}`)
   const lista = porAvisar.slice(0, 3).join(', ') + (porAvisar.length > 3 ? '…' : '')
-  const aviso = `📥 ${porAvisar.length === 1 ? 'Fuente nueva' : `${porAvisar.length} fuentes nuevas`} en «${info.nombre}»: ${lista}. Resúmelas desde el panel (📚 Cuaderno) o con /estudio:resumir.`
+  const aviso = L(
+    `📥 ${porAvisar.length === 1 ? 'Fuente nueva' : `${porAvisar.length} fuentes nuevas`} en «${info.nombre}»: ${lista}. Resúmelas desde el panel (📚 Cuaderno) o con /estudio:resumir.`,
+    `📥 ${porAvisar.length === 1 ? 'New source' : `${porAvisar.length} new sources`} in «${info.nombre}»: ${lista}. Summarize them from the pane (📚 Notebook) or with /estudio:resumir.`,
+  )
   h.toast(aviso, 12_000)
   h.linea(aviso)
 }
@@ -700,7 +710,7 @@ export async function marcarFuentesVistas(h: Host, cfg: Config, archivos?: reado
   const lista = archivos ?? info.nuevas
   await cuadernos.marcarVistas(h, info.ruta, lista)
   await refrescarCuaderno(h, cfg)
-  return lista.length === 0 ? 'No había fuentes nuevas.' : `Marcadas como vistas: ${lista.join(', ')}.`
+  return lista.length === 0 ? L('No había fuentes nuevas.', 'There were no new sources.') : L(`Marcadas como vistas: ${lista.join(', ')}.`, `Marked as seen: ${lista.join(', ')}.`)
 }
 
 /** La orden que lanza la skill de resumen para estas fuentes. */
@@ -721,14 +731,14 @@ export async function recordatorio(h: Host, cfg: Config) {
   const info = await h.st.cuaderno.leer()
   if (info === null) return
   const n = pendientes(await h.st.tarjetas.leer(), fecha(await h.now()), await limiteNuevas(h, cfg)).length
-  if (n > 0) h.toast(`🃏 Tienes ${n} ${n === 1 ? 'tarjeta pendiente' : 'tarjetas pendientes'} en «${info.nombre}» · /repasar`, 10_000)
+  if (n > 0) h.toast(L(`🃏 Tienes ${n} ${n === 1 ? 'tarjeta pendiente' : 'tarjetas pendientes'} en «${info.nombre}» · /repasar`, `🃏 You have ${n} ${n === 1 ? 'card' : 'cards'} due in «${info.nombre}» · /repasar`), 10_000)
 }
 
 // ── Tarjetas ────────────────────────────────────────────────────────────────
 
 async function cuadernoActivo(h: Host) {
   const info = await h.st.cuaderno.leer()
-  if (info === null) throw new Error('No hay cuaderno activo. Crea o elige uno con /cuaderno <nombre>.')
+  if (info === null) throw new Error(L('No hay cuaderno activo. Crea o elige uno con /cuaderno <nombre>.', 'No active notebook. Create or pick one with /cuaderno <name>.'))
   return info
 }
 
@@ -740,8 +750,10 @@ export async function agregarTarjetas(h: Host, cfg: Config, nuevas: readonly ank
   await cuadernos.guardarTarjetas(h, info.ruta, r.tarjetas, ahora)
   await h.st.tarjetas.cambiar(() => r.tarjetas)
   if (r.agregadas > 0) await apuntarSesion(h, cfg, ahora, { creadas: r.agregadas })
-  return `Guardadas ${r.agregadas} tarjetas en «${info.nombre}» (${r.tarjetas.length} en total` +
-    `${r.repetidas > 0 ? `, ${r.repetidas} repetidas o vacías omitidas` : ''}). Se repasan con /repasar.`
+  return L(
+    `Guardadas ${r.agregadas} tarjetas en «${info.nombre}» (${r.tarjetas.length} en total${r.repetidas > 0 ? `, ${r.repetidas} repetidas o vacías omitidas` : ''}). Se repasan con /repasar.`,
+    `Saved ${r.agregadas} cards in «${info.nombre}» (${r.tarjetas.length} in total${r.repetidas > 0 ? `, ${r.repetidas} duplicate or empty skipped` : ''}). Review them with /repasar.`,
+  )
 }
 
 export async function calificar(h: Host, cfg: Config, id: string, nota: Nota) {
@@ -762,7 +774,7 @@ export async function calificar(h: Host, cfg: Config, id: string, nota: Nota) {
   await h.st.repaso.cambiar(r => ({ mostrarReverso: false, ...(r.escribir ? { escribir: true } : {}), ...(previa ? { deshacer: { previa, dia, acierto, nota } } : {}) }))
   await sumar(h, cfg, ahora, { repasos: 1, aciertos: acierto ? 1 : 0, notas: { [nota]: 1 } })
   await cuadernos.guardarTarjetas(h, info.ruta, tarjetas, ahora)
-  if (pendientes(tarjetas, dia, await limiteNuevas(h, cfg, tarjetas)).length === 0) h.toast('¡Repaso de hoy completado! 🎉')
+  if (pendientes(tarjetas, dia, await limiteNuevas(h, cfg, tarjetas)).length === 0) h.toast(L('¡Repaso de hoy completado! 🎉', "Today's review done! 🎉"))
 }
 
 /** Deshace la última calificación: la tarjeta vuelve a como estaba y el repaso se descuenta. */
@@ -770,7 +782,7 @@ export async function deshacer(h: Host, cfg: Config): Promise<string> {
   const info = await cuadernoActivo(h)
   const repaso = await h.st.repaso.leer()
   const ultimo = repaso.deshacer
-  if (ultimo === undefined) return 'No hay nada que deshacer.'
+  if (ultimo === undefined) return L('No hay nada que deshacer.', 'Nothing to undo.')
   const ahora = await h.now()
   const tarjetas = await h.st.tarjetas.cambiar(ts => ts.map(t => (t.id === ultimo.previa.id ? ultimo.previa : t)))
   await h.st.repaso.cambiar(r => ({ mostrarReverso: false, ...(r.escribir ? { escribir: true } : {}) }))
@@ -778,7 +790,7 @@ export async function deshacer(h: Host, cfg: Config): Promise<string> {
     repasos: -1, aciertos: ultimo.acierto ? -1 : 0, ...(ultimo.nota !== undefined ? { notas: { [ultimo.nota]: -1 } } : {}),
   }, ultimo.dia)
   await cuadernos.guardarTarjetas(h, info.ruta, tarjetas, ahora)
-  return `Deshecho: «${ultimo.previa.frente}» vuelve a la cola.`
+  return L(`Deshecho: «${ultimo.previa.frente}» vuelve a la cola.`, `Undone: «${ultimo.previa.frente}» is back in the queue.`)
 }
 
 /** Corrige el frente o el reverso de una tarjeta (su programación no cambia). */
@@ -786,13 +798,13 @@ export async function editarTarjeta(h: Host, id: string, cambio: { frente?: stri
   const info = await cuadernoActivo(h)
   const frente = cambio.frente?.trim()
   const reverso = cambio.reverso?.trim()
-  if (frente === '' || reverso === '') return 'La pregunta y la respuesta no pueden quedar vacías.'
+  if (frente === '' || reverso === '') return L('La pregunta y la respuesta no pueden quedar vacías.', 'The question and the answer cannot be empty.')
   const ahora = await h.now()
   const tarjetas = await h.st.tarjetas.cambiar(ts =>
     ts.map(t => (t.id === id ? { ...t, ...(frente !== undefined ? { frente } : {}), ...(reverso !== undefined ? { reverso } : {}) } : t)),
   )
   await cuadernos.guardarTarjetas(h, info.ruta, tarjetas, ahora)
-  return 'Tarjeta guardada.'
+  return L('Tarjeta guardada.', 'Card saved.')
 }
 
 export async function borrarTarjeta(h: Host, id: string): Promise<string> {
@@ -808,7 +820,7 @@ export async function borrarTarjeta(h: Host, id: string): Promise<string> {
   )
   await h.st.repaso.cambiar(r => ({ mostrarReverso: false, ...(r.escribir ? { escribir: true } : {}), ...(r.deshacer && r.deshacer.previa.id !== id ? { deshacer: r.deshacer } : {}) }))
   await cuadernos.guardarTarjetas(h, info.ruta, tarjetas, ahora)
-  return borrada === undefined ? 'Esa tarjeta ya no existe.' : `Borrada: «${borrada.frente}» (queda en tarjetas.bak.json por si acaso).`
+  return borrada === undefined ? L('Esa tarjeta ya no existe.', 'That card no longer exists.') : L(`Borrada: «${borrada.frente}» (queda en tarjetas.bak.json por si acaso).`, `Deleted: «${borrada.frente}» (kept in tarjetas.bak.json just in case).`)
 }
 
 /**
@@ -832,7 +844,7 @@ async function corregirConClaude(h: Host, t: Tarjeta, escrita: string): Promise<
       'Eres un tutor que corrige tarjetas de estudio. Compara la respuesta del estudiante con la correcta por su significado, ' +
       'no por las palabras exactas. Contesta SOLO con JSON: {"nota":"otra|dificil|bien|facil","comentario":"..."}. ' +
       'otra = incorrecta o vacía; dificil = parcialmente correcta o le falta algo importante; bien = correcta; facil = correcta, completa y precisa. ' +
-      'El comentario, en español, en menos de 25 palabras: qué acertó o qué le faltó.',
+      `El comentario, ${L('en español', 'in English')}, en menos de 25 palabras: qué acertó o qué le faltó.`,
     prompt: `Pregunta: ${t.frente}
 Respuesta correcta: ${t.reverso}
 Respuesta del estudiante: ${escrita}`,
@@ -863,30 +875,33 @@ const palabras = (s: string) =>
 export function corregirLocal(correcta: string, escrita: string): Veredicto {
   const objetivo = palabras(correcta)
   const tuyas = palabras(escrita)
-  if (objetivo.size === 0) return { nota: 'bien', comentario: 'Compárala tú con la respuesta.', origen: 'local' }
+  if (objetivo.size === 0) return { nota: 'bien', comentario: L('Compárala tú con la respuesta.', 'Compare it with the answer yourself.'), origen: 'local' }
   const comunes = [...objetivo].filter(p => tuyas.has(p)).length
   const parecido = comunes / objetivo.size
   const nota: Nota = parecido >= 0.9 ? 'facil' : parecido >= 0.6 ? 'bien' : parecido >= 0.3 ? 'dificil' : 'otra'
-  return { nota, comentario: `Coinciden ${comunes} de ${objetivo.size} palabras clave.`, origen: 'local' }
+  return { nota, comentario: L(`Coinciden ${comunes} de ${objetivo.size} palabras clave.`, `${comunes} of ${objetivo.size} key words match.`), origen: 'local' }
 }
 
 export async function exportarAnki(h: Host): Promise<string> {
   const info = await cuadernoActivo(h)
   const tarjetas = await h.st.tarjetas.leer()
-  if (tarjetas.length === 0) return `«${info.nombre}» aún no tiene tarjetas que exportar.`
+  if (tarjetas.length === 0) return L(`«${info.nombre}» aún no tiene tarjetas que exportar.`, `«${info.nombre}» has no cards to export yet.`)
   const destino = `${info.ruta}/salidas/anki-${info.nombre.replace(/\s+/g, '-')}.txt`
   await h.fs.write(destino, anki.exportar(tarjetas, info.nombre))
-  return `Exportadas ${tarjetas.length} tarjetas a:\n  ${destino}\nEn Anki: Archivo → Importar → elige ese archivo (el mazo se llama «${info.nombre}»).`
+  return L(
+    `Exportadas ${tarjetas.length} tarjetas a:\n  ${destino}\nEn Anki: Archivo → Importar → elige ese archivo (el mazo se llama «${info.nombre}»).`,
+    `Exported ${tarjetas.length} cards to:\n  ${destino}\nIn Anki: File → Import → pick that file (the deck is called «${info.nombre}»).`,
+  )
 }
 
 export async function importarAnki(h: Host, cfg: Config, ruta: string): Promise<string> {
   const info = await cuadernoActivo(h)
   const archivo = ruta.startsWith('~/') ? h.home + ruta.slice(1) : ruta.startsWith('/') ? ruta : `${info.ruta}/${ruta}`
-  if (!(await h.fs.exists(archivo))) return `No encuentro ${archivo}.`
+  if (!(await h.fs.exists(archivo))) return L(`No encuentro ${archivo}.`, `Can't find ${archivo}.`)
   const r = anki.importar(await h.fs.read(archivo))
-  if (r.tarjetas.length === 0) return `No encontré tarjetas en ${archivo} (se esperan dos columnas: frente y reverso, separadas por tabulador, «;» o «,»).`
+  if (r.tarjetas.length === 0) return L(`No encontré tarjetas en ${archivo} (se esperan dos columnas: frente y reverso, separadas por tabulador, «;» o «,»).`, `No cards found in ${archivo} (expected two columns, front and back, separated by tab, «;» or «,»).`)
   const resumen = await agregarTarjetas(h, cfg, r.tarjetas)
-  return r.ignoradas > 0 ? `${resumen}\n${r.ignoradas} líneas sin frente o reverso se ignoraron.` : resumen
+  return r.ignoradas > 0 ? `${resumen}\n${L(`${r.ignoradas} líneas sin frente o reverso se ignoraron.`, `${r.ignoradas} lines without front or back were skipped.`)}` : resumen
 }
 
 export async function textoTarjetas(h: Host, cfg: Config): Promise<string> {
@@ -897,9 +912,14 @@ export async function textoTarjetas(h: Host, cfg: Config): Promise<string> {
   const limite = await limiteNuevas(h, cfg, tarjetas)
   const n = pendientes(tarjetas, hoy, limite).length
   const espera = nuevasEnEspera(tarjetas, hoy, limite)
-  return `«${info.nombre}»: ${tarjetas.length} tarjetas · ${n} para hoy${espera > 0 ? ` (+${espera} nuevas esperan turno)` : ''}\n` +
-    `  nuevas ${e.nuevas} · aprendiendo ${e.aprendiendo} · maduras ${e.maduras}\n` +
-    'Más: /anki exportar · /anki importar <archivo>'
+  return L(
+    `«${info.nombre}»: ${tarjetas.length} tarjetas · ${n} para hoy${espera > 0 ? ` (+${espera} nuevas esperan turno)` : ''}\n` +
+      `  nuevas ${e.nuevas} · aprendiendo ${e.aprendiendo} · maduras ${e.maduras}\n` +
+      'Más: /anki exportar · /anki importar <archivo>',
+    `«${info.nombre}»: ${tarjetas.length} cards · ${n} for today${espera > 0 ? ` (+${espera} new waiting)` : ''}\n` +
+      `  new ${e.nuevas} · learning ${e.aprendiendo} · mature ${e.maduras}\n` +
+      'More: /anki exportar (export) · /anki importar <file> (import)',
+  )
 }
 
 // ── Mapas mentales ──────────────────────────────────────────────────────────
@@ -975,19 +995,19 @@ export async function generarPdf(h: Host, cfg: Config, abrir = true): Promise<st
   const rutaPdf = `${carpeta}/${nombre}.pdf`
   await h.fs.write(rutaHtml, html)
 
-  const contenido = `${tarjetas.length} tarjetas · ${documentos.length} documentos` +
-    `${tarjetas.length > 0 ? ` · ${Math.ceil(tarjetas.length / 10) * 2} hojas para recortar` : ''}` +
-    `${omitidos.length > 0 ? ` (omitidos por grandes: ${omitidos.join(', ')})` : ''}`
+  const contenido = `${tarjetas.length} ${L('tarjetas', 'cards')} · ${documentos.length} ${L('documentos', 'documents')}` +
+    `${tarjetas.length > 0 ? ` · ${Math.ceil(tarjetas.length / 10) * 2} ${L('hojas para recortar', 'cut-out sheets')}` : ''}` +
+    `${omitidos.length > 0 ? ` (${L('omitidos por grandes', 'skipped, too large')}: ${omitidos.join(', ')})` : ''}`
 
   const r = await conNavegador(h, rutaHtml, rutaPdf, ['--no-pdf-header-footer', '--print-to-pdf-no-header', `--print-to-pdf=${rutaPdf}`])
   if (r.ok) {
     await contar(h, 'pdfs', { sumar: 1 }).catch(() => undefined)
     if (abrir) abrirArchivo(h, rutaPdf)
-    return `📄 PDF de repaso listo: ${rutaPdf}\n${contenido}`
+    return `📄 ${L('PDF de repaso listo', 'Review PDF ready')}: ${rutaPdf}\n${contenido}`
   }
   if (abrir) abrirArchivo(h, rutaHtml)
-  return `${r.motivo} Dejé el documento en:\n  ${rutaHtml}\n` +
-    `Ábrelo en el navegador y usa Imprimir → Guardar como PDF (con «Gráficos de fondo» activado).\n${contenido}`
+  return `${r.motivo} ${L('Dejé el documento en', 'The document is at')}:\n  ${rutaHtml}\n` +
+    `${L('Ábrelo en el navegador y usa Imprimir → Guardar como PDF (con «Gráficos de fondo» activado).', 'Open it in a browser and use Print → Save as PDF (with «Background graphics» on).')}\n${contenido}`
 }
 
 /**
@@ -1005,11 +1025,13 @@ async function conNavegador(h: Host, html: string, salida: string, extra: readon
     if (r === undefined) continue // no está instalado
     if (r.exitCode === 0 && (await h.fs.exists(salida))) return { ok: true }
     const error = r.stderr.split('\n').map(l => l.trim()).filter(l => l !== '' && !l.startsWith('Fontconfig')).pop()
-    fallos.push(`${nav.split('/').pop() ?? nav} (código ${r.exitCode}${error !== undefined ? `: ${error.slice(0, 160)}` : ''})`)
+    fallos.push(`${nav.split('/').pop() ?? nav} (${L('código', 'code')} ${r.exitCode}${error !== undefined ? `: ${error.slice(0, 160)}` : ''})`)
   }
   return {
     ok: false,
-    motivo: fallos.length > 0 ? `El navegador no pudo crear el archivo: ${fallos.join('; ')}.` : 'No encontré Chrome, Chromium, Edge ni Brave.',
+    motivo: fallos.length > 0
+      ? L(`El navegador no pudo crear el archivo: ${fallos.join('; ')}.`, `The browser could not create the file: ${fallos.join('; ')}.`)
+      : L('No encontré Chrome, Chromium, Edge ni Brave.', 'Could not find Chrome, Chromium, Edge or Brave.'),
   }
 }
 
@@ -1026,10 +1048,10 @@ export async function generarInforme(h: Host, cfg: Config, pasada = false, abrir
   await h.storeSet(CLAVE_INFORME, lunes)
   if (!r.ok) {
     if (abrir) abrirArchivo(h, `${base}.html`)
-    return `${r.motivo} Dejé el informe en ${base}.html: ábrelo y haz una captura.`
+    return L(`${r.motivo} Dejé el informe en ${base}.html: ábrelo y haz una captura.`, `${r.motivo} The report is at ${base}.html: open it and take a screenshot.`)
   }
   if (abrir) abrirArchivo(h, `${base}.png`)
-  return `📸 Informe semanal listo: ${base}.png (1080×1350, listo para compartir)`
+  return L(`📸 Informe semanal listo: ${base}.png (1080×1350, listo para compartir)`, `📸 Weekly report ready: ${base}.png (1080×1350, ready to share)`)
 }
 
 const CLAVE_INFORME = 'ultimoInforme'
@@ -1042,7 +1064,7 @@ export async function recordarInforme(h: Host) {
   const s = await h.st.stats.leer()
   const huboActividad = Array.from({ length: 7 }, (_, i) => s[sumarDias(pasada, i)]).some(d => d !== undefined && (d.minutos > 0 || d.repasos > 0))
   if (!huboActividad || (await h.storeGet(CLAVE_INFORME)) === pasada) return
-  h.toast('📸 Tu informe de la semana pasada está listo para compartir: /estudio informe pasada', 12_000)
+  h.toast(L('📸 Tu informe de la semana pasada está listo para compartir: /estudio informe pasada', "📸 Last week's report is ready to share: /estudio informe pasada"), 12_000)
 }
 
 /** Abre un archivo con la aplicación del sistema, sin esperar. */
@@ -1084,11 +1106,11 @@ export function hablar(h: Host, texto: string) {
     void (async () => {
       for (const t of trozos(texto)) {
         if (mio !== turnoVoz) return
-        const r = await h.run(['spd-say', '-w', '-l', 'es', t], { timeoutMs: 600_000 }).catch(() => undefined)
+        const r = await h.run(['spd-say', '-w', '-l', L('es', 'en'), t], { timeoutMs: 600_000 }).catch(() => undefined)
         if (r?.exitCode === 0) continue
         const ok = await h.speak(t).then(() => true, () => false)
         if (!ok) {
-          h.toast('No encontré un sintetizador de voz (instala speech-dispatcher o espeak-ng).')
+          h.toast(L('No encontré un sintetizador de voz (instala speech-dispatcher o espeak-ng).', 'No speech synthesizer found (install speech-dispatcher or espeak-ng).'))
           return
         }
       }

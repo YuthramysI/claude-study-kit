@@ -1,14 +1,16 @@
 // Máquina de estados del Pomodoro, en funciones puras.
 import type { Fase, Pomodoro } from '../types'
+import { L } from './i18n'
 
 export type Duraciones = { enfoque: number; descanso: number; descansoLargo: number }
 
 export const RONDAS_POR_CICLO = 4
 
-export const NOMBRE_FASE: Record<Fase, string> = {
-  enfoque: 'enfoque',
-  descanso: 'descanso',
-  descansoLargo: 'descanso largo',
+/** El nombre de cada fase, en el idioma de la interfaz. */
+export const NOMBRE_FASE: Readonly<Record<Fase, string>> = {
+  get enfoque() { return L('enfoque', 'focus') },
+  get descanso() { return L('descanso', 'break') },
+  get descansoLargo() { return L('descanso largo', 'long break') },
 }
 
 export const INICIAL: Pomodoro = {
@@ -106,7 +108,7 @@ export function reloj(ms: number): string {
 export function lineaEstado(p: Pomodoro, ahora: number): string | undefined {
   if (p.estado === 'parado') return undefined
   const icono = p.fase === 'enfoque' ? '🍅' : '☕'
-  const pausa = p.estado === 'pausado' ? ' (pausa)' : ''
+  const pausa = p.estado === 'pausado' ? L(' (pausa)', ' (paused)') : ''
   const ronda = p.fase === 'enfoque' ? ` ${(p.ronda % RONDAS_POR_CICLO) + 1}/${RONDAS_POR_CICLO}` : ''
   const tarea = p.fase === 'enfoque' && p.tarea !== undefined ? ` · ${p.tarea}` : ''
   return `${icono} ${reloj(restante(p, ahora))} · ${NOMBRE_FASE[p.fase]}${ronda}${tarea}${pausa}`

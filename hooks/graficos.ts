@@ -1,5 +1,6 @@
 // Gráficos del panel: SVG para VS Code y escritorio, texto para la terminal.
 import type { DiaStats, Fase } from '../types'
+import { L } from './i18n'
 
 /** Colores de cada fase en los SVG: tonos medios, legibles sobre fondo claro y oscuro. */
 export const COLOR_FASE: Record<Fase | 'pausa', string> = {
@@ -129,7 +130,7 @@ export function mapaCalor(dias: readonly { dia: string; valor: number; diaSemana
     const color = nivel < 0 ? GRIS : VERDES[nivel] ?? VERDES[3]
     return `<rect x="${x}" y="${y}" width="${celda}" height="${celda}" rx="3" fill="${color}" fill-opacity="${nivel < 0 ? 0.18 : 1}"><title>${esc(d.dia)}</title></rect>`
   }).join('')
-  const etiquetas = [['L', 0], ['X', 2], ['V', 4]]
+  const etiquetas = [[L('L', 'M'), 0], [L('X', 'W'), 2], [L('V', 'F'), 4]]
     .map(([t, f]) => `<text x="0" y="${arriba + Number(f) * (celda + hueco) + 10}" font-family="${FUENTE}" font-size="10" fill="${GRIS}">${t}</text>`)
     .join('')
   const ancho = izq + semanas * (celda + hueco)
@@ -142,9 +143,9 @@ export function etapas(e: { nuevas: number; aprendiendo: number; maduras: number
   const ancho = 320
   const total = e.nuevas + e.aprendiendo + e.maduras
   const partes = [
-    { n: e.nuevas, color: '#8AB4F8', nombre: 'nuevas' },
-    { n: e.aprendiendo, color: '#F6B04A', nombre: 'aprendiendo' },
-    { n: e.maduras, color: '#2FA67A', nombre: 'maduras' },
+    { n: e.nuevas, color: '#8AB4F8', nombre: L('nuevas', 'new') },
+    { n: e.aprendiendo, color: '#F6B04A', nombre: L('aprendiendo', 'learning') },
+    { n: e.maduras, color: '#2FA67A', nombre: L('maduras', 'mature') },
   ]
   let x = 0
   const barra = total === 0
@@ -239,7 +240,7 @@ export function horarioCalor(matriz: readonly (readonly number[])[]): string {
   const izq = 18
   const arriba = 14
   const max = Math.max(1, ...matriz.flat())
-  const dias = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+  const dias = L('LMXJVSD', 'MTWTFSS').split('')
   const cuerpo = matriz.map((fila, d) => fila.map((v, h) => {
     const nivel = v <= 0 ? -1 : Math.min(3, Math.floor((v / max) * 4 - 1e-9))
     const color = nivel < 0 ? GRIS : VERDES[nivel] ?? VERDES[3]
@@ -269,12 +270,12 @@ export function tarjetaNivel(n: { nivel: number; titulo: string; xp: number; des
     `<defs><linearGradient id="xp" x1="0" x2="1"><stop offset="0" stop-color="#F6B04A"/><stop offset="1" stop-color="#E8553F"/></linearGradient></defs>` +
     `<circle cx="46" cy="48" r="${r}" fill="none" stroke="${GRIS}" stroke-opacity="0.2" stroke-width="7"/>` +
     `<circle cx="46" cy="48" r="${r}" fill="none" stroke="url(#xp)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${r1(c)}" stroke-dashoffset="${r1(c * (1 - hecho))}" transform="rotate(-90 46 48)"/>` +
-    `<text x="46" y="45" text-anchor="middle" font-family="${FUENTE}" font-size="10" fill="${GRIS}">NIVEL</text>` +
+    `<text x="46" y="45" text-anchor="middle" font-family="${FUENTE}" font-size="10" fill="${GRIS}">${L('NIVEL', 'LEVEL')}</text>` +
     `<text x="46" y="64" text-anchor="middle" font-family="${FUENTE}" font-size="22" font-weight="800" fill="#E8553F">${n.nivel}</text>` +
     `<text x="98" y="36" font-family="${FUENTE}" font-size="18" font-weight="800" fill="#E8553F">${esc(n.titulo)}</text>` +
     `<rect x="98" y="48" width="${barra}" height="10" rx="5" fill="${GRIS}" fill-opacity="0.2"/>` +
     `<rect x="98" y="48" width="${r1(Math.max(4, barra * hecho))}" height="10" rx="5" fill="url(#xp)"/>` +
-    `<text x="98" y="76" font-family="${FUENTE}" font-size="11" fill="${GRIS}">${n.xp - n.desde} / ${n.hasta - n.desde} XP para el nivel ${n.nivel + 1} · 🏆 ${n.logros}/${n.total}</text>` +
+    `<text x="98" y="76" font-family="${FUENTE}" font-size="11" fill="${GRIS}">${n.xp - n.desde} / ${n.hasta - n.desde} ${L('XP para el nivel', 'XP to level')} ${n.nivel + 1} · 🏆 ${n.logros}/${n.total}</text>` +
     `</svg>`
 }
 

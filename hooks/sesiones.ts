@@ -2,6 +2,7 @@
 import type { DiaStats, Sesion } from '../types'
 import { fecha } from './srs'
 import * as stats from './stats'
+import { L } from './i18n'
 
 /** Tras esta pausa sin actividad, lo siguiente abre una sesión nueva. */
 export const PAUSA_MAX_MS = 30 * 60_000
@@ -68,8 +69,8 @@ export function linea(s: Sesion, ahora?: number): string {
     `${dia}${hora(s.inicio)}–${hora(s.fin)}`,
     stats.horas(duracion(s)),
     ...(s.pomodoros > 0 ? [`${s.pomodoros} 🍅`] : []),
-    ...(s.repasos > 0 ? [`${s.repasos} tarjetas (${stats.porcentaje(s.aciertos, s.repasos)})`] : []),
-    ...(s.creadas > 0 ? [`${s.creadas} nuevas`] : []),
+    ...(s.repasos > 0 ? [`${s.repasos} ${L('tarjetas', 'cards')} (${stats.porcentaje(s.aciertos, s.repasos)})`] : []),
+    ...(s.creadas > 0 ? [`${s.creadas} ${L('nuevas', 'new')}`] : []),
   ]
   const tema = Object.entries(s.temas).sort((a, b) => b[1] - a[1])[0]?.[0]
   return [...partes, ...(tema !== undefined ? [tema] : [])].join(' · ')
@@ -79,9 +80,9 @@ export function linea(s: Sesion, ahora?: number): string {
 export function resumen(s: Sesion): string {
   const temas = Object.entries(s.temas).sort((a, b) => b[1] - a[1])
   return [
-    `📝 Sesión de ${hora(s.inicio)} a ${hora(s.fin)} (${stats.horas(duracion(s))})`,
-    `  🍅 ${s.pomodoros} pomodoros · ${stats.horas(s.minutos)} de enfoque${temas.length > 0 ? `: ${temas.map(([t, m]) => `${t} ${stats.horas(m)}`).join(', ')}` : ''}`,
-    `  🃏 ${s.repasos} tarjetas repasadas · ${stats.porcentaje(s.aciertos, s.repasos)} de aciertos${s.creadas > 0 ? ` · ${s.creadas} creadas` : ''}`,
+    L(`📝 Sesión de ${hora(s.inicio)} a ${hora(s.fin)} (${stats.horas(duracion(s))})`, `📝 Session from ${hora(s.inicio)} to ${hora(s.fin)} (${stats.horas(duracion(s))})`),
+    `  🍅 ${s.pomodoros} pomodoros · ${stats.horas(s.minutos)} ${L('de enfoque', 'of focus')}${temas.length > 0 ? `: ${temas.map(([t, m]) => `${t} ${stats.horas(m)}`).join(', ')}` : ''}`,
+    `  🃏 ${s.repasos} ${L('tarjetas repasadas', 'cards reviewed')} · ${stats.porcentaje(s.aciertos, s.repasos)} ${L('de aciertos', 'correct')}${s.creadas > 0 ? ` · ${s.creadas} ${L('creadas', 'created')}` : ''}`,
     ...(s.cuadernos.length > 0 ? [`  📚 ${s.cuadernos.join(', ')}`] : []),
   ].join('\n')
 }
@@ -90,17 +91,17 @@ export function resumen(s: Sesion): string {
 export function diario(dia: string, totales: DiaStats, sesiones: readonly Sesion[], consejo?: string): string {
   const temas = Object.entries(totales.temas ?? {}).sort((a, b) => b[1] - a[1])
   return [
-    `# Diario de estudio · ${dia}`,
+    `# ${L('Diario de estudio', 'Study journal')} · ${dia}`,
     '',
-    `- 🍅 **${totales.pomodoros} pomodoros** · ${stats.horas(totales.minutos)} de enfoque`,
-    `- 🃏 **${totales.repasos} tarjetas** repasadas · ${stats.porcentaje(totales.aciertos, totales.repasos)} de aciertos`,
-    ...(temas.length > 0 ? [`- 📌 Temas: ${temas.map(([t, m]) => `${t} (${stats.horas(m)})`).join(', ')}`] : []),
-    ...((totales.examenes ?? []).map(e => `- 📝 Examen simulado${e.titulo !== undefined ? ` «${e.titulo}»` : ''}: **${e.nota.toFixed(1)}/10** (${e.preguntas} preguntas)`)),
+    `- 🍅 **${totales.pomodoros} pomodoros** · ${stats.horas(totales.minutos)} ${L('de enfoque', 'of focus')}`,
+    `- 🃏 **${totales.repasos} ${L('tarjetas', 'cards')}** ${L('repasadas', 'reviewed')} · ${stats.porcentaje(totales.aciertos, totales.repasos)} ${L('de aciertos', 'correct')}`,
+    ...(temas.length > 0 ? [`- 📌 ${L('Temas', 'Topics')}: ${temas.map(([t, m]) => `${t} (${stats.horas(m)})`).join(', ')}`] : []),
+    ...((totales.examenes ?? []).map(e => `- 📝 ${L('Examen simulado', 'Mock exam')}${e.titulo !== undefined ? ` «${e.titulo}»` : ''}: **${e.nota.toFixed(1)}/10** (${e.preguntas} ${L('preguntas', 'questions')})`)),
     '',
-    '## Sesiones',
+    `## ${L('Sesiones', 'Sessions')}`,
     '',
-    ...(sesiones.length === 0 ? ['_Sin sesiones registradas._'] : sesiones.map(s => `- ${linea(s)}`)),
-    ...(consejo !== undefined && consejo.trim() !== '' ? ['', '## 🤖 Consejo del coach', '', consejo.trim()] : []),
+    ...(sesiones.length === 0 ? [L('_Sin sesiones registradas._', '_No sessions recorded._')] : sesiones.map(s => `- ${linea(s)}`)),
+    ...(consejo !== undefined && consejo.trim() !== '' ? ['', `## 🤖 ${L('Consejo del coach', 'Coach tip')}`, '', consejo.trim()] : []),
     '',
   ].join('\n')
 }

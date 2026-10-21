@@ -1,10 +1,12 @@
 ---
 name: mapa
-description: Crea un mapa mental de los conceptos de las fuentes del cuaderno activo (o de un tema) y lo guarda para verlo dibujado en el panel y en el PDF. Úsala cuando el usuario pida un mapa mental, un mapa conceptual, un esquema o una visión de conjunto del tema.
+description: Crea un mapa mental de los conceptos de las fuentes del cuaderno activo (o de un tema) y lo guarda para verlo dibujado en el panel y en el PDF. Úsala cuando el usuario pida un mapa mental, un mapa conceptual, un esquema o una visión de conjunto del tema. EN: Mind map of the concepts in the sources, drawn in the pane and the PDF.
 argument-hint: "[tema o archivo]"
 ---
 
 # Mapa mental
+
+> **Idioma / Language:** la respuesta de `mcp__estudio__cuaderno_activo` trae `idioma`. Si es `en`, responde al usuario y escribe todos los archivos **en inglés** (los títulos de las secciones también), aunque estas instrucciones estén en español. Si es `es`, en español. Las citas de las fuentes se dejan en su idioma original.
 
 Tema: $ARGUMENTS (si está vacío, todo el cuaderno).
 

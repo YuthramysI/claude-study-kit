@@ -1,5 +1,6 @@
 // Exportar e importar tarjetas en el formato de texto de Anki.
 import type { Tarjeta } from '../types'
+import { L } from './i18n'
 
 export type TarjetaSimple = { frente: string; reverso: string; fuente?: string }
 
@@ -79,7 +80,7 @@ export function importar(texto: string): { tarjetas: TarjetaSimple[]; ignoradas:
       ignoradas++
       continue
     }
-    tarjetas.push({ frente, reverso, fuente: 'importada' })
+    tarjetas.push({ frente, reverso, fuente: L('importada', 'imported') })
   }
   return { tarjetas, ignoradas }
 }

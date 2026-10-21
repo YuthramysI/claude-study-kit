@@ -1,10 +1,12 @@
 ---
 name: quiz
-description: Hace un quiz interactivo de opción múltiple sobre las fuentes del cuaderno activo, una pregunta a la vez, con puntuación y explicación. Úsala cuando el usuario quiera ponerse a prueba, un examen de práctica o un test.
+description: Hace un quiz interactivo de opción múltiple sobre las fuentes del cuaderno activo, una pregunta a la vez, con puntuación y explicación. Úsala cuando el usuario quiera ponerse a prueba, un examen de práctica o un test. EN: Interactive multiple-choice quiz on the sources, one question at a time.
 argument-hint: "[número de preguntas] [tema]"
 ---
 
 # Quiz interactivo
+
+> **Idioma / Language:** la respuesta de `mcp__estudio__cuaderno_activo` trae `idioma`. Si es `en`, responde al usuario y escribe todos los archivos **en inglés** (los títulos de las secciones también), aunque estas instrucciones estén en español. Si es `es`, en español. Las citas de las fuentes se dejan en su idioma original.
 
 Petición: $ARGUMENTS (por defecto, 8 preguntas de todo el cuaderno, de dificultad mixta).
 

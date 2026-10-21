@@ -1,16 +1,18 @@
 // Repaso espaciado con FSRS-4.5 (Free Spaced Repetition Scheduler), en funciones puras.
 // https://github.com/open-spaced-repetition/fsrs4anki/wiki/The-Algorithm
 import type { Tarjeta } from '../types'
+import { L } from './i18n'
 
 export type Nota = 'otra' | 'dificil' | 'bien' | 'facil'
 
 export const NOTAS: readonly Nota[] = ['otra', 'dificil', 'bien', 'facil']
 
-export const ETIQUETAS: Record<Nota, string> = {
-  otra: 'Otra vez',
-  dificil: 'Difícil',
-  bien: 'Bien',
-  facil: 'Fácil',
+/** El nombre de cada nota, en el idioma de la interfaz. */
+export const ETIQUETAS: Readonly<Record<Nota, string>> = {
+  get otra() { return L('Otra vez', 'Again') },
+  get dificil() { return L('Difícil', 'Hard') },
+  get bien() { return L('Bien', 'Good') },
+  get facil() { return L('Fácil', 'Easy') },
 }
 
 /** La nota en la escala de FSRS: 1 otra vez · 2 difícil · 3 bien · 4 fácil. */
@@ -41,11 +43,15 @@ export function fecha(ms: number): string {
 }
 
 export const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'] as const
+export const MESES_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] as const
 
-/** «20 de octubre de 2026». */
+/** El nombre del mes `m` (1–12) en el idioma de la interfaz. */
+export const nombreMes = (m: number) => L(MESES[m - 1] ?? '', MESES_EN[m - 1] ?? '')
+
+/** «20 de octubre de 2026» · «October 20, 2026». */
 export function fechaLarga(dia: string): string {
   const [y, m, d] = dia.split('-').map(Number)
-  return `${d ?? ''} de ${MESES[(m ?? 1) - 1] ?? ''} de ${y ?? ''}`
+  return L(`${d ?? ''} de ${nombreMes(m ?? 1)} de ${y ?? ''}`, `${nombreMes(m ?? 1)} ${d ?? ''}, ${y ?? ''}`)
 }
 
 export function sumarDias(dia: string, dias: number): string {
@@ -191,11 +197,12 @@ export function pronostico(tarjetas: readonly Tarjeta[], hoy: string, dias = 30)
 
 /** Texto corto para un intervalo: "hoy", "1 d", "3 sem", "2 m", "1,5 a". */
 export function describirIntervalo(dias: number): string {
-  if (dias <= 0) return 'hoy'
+  if (dias <= 0) return L('hoy', 'today')
   if (dias < 14) return `${dias} d`
-  if (dias < 60) return `${Math.round(dias / 7)} sem`
-  if (dias < 365) return `${Math.round(dias / 30)} m`
-  return `${(Math.round(dias / 36.5) / 10).toString().replace('.', ',')} a`
+  if (dias < 60) return `${Math.round(dias / 7)} ${L('sem', 'wk')}`
+  if (dias < 365) return `${Math.round(dias / 30)} ${L('m', 'mo')}`
+  const anios = Math.round(dias / 36.5) / 10
+  return L(`${anios.toString().replace('.', ',')} a`, `${anios} y`)
 }
 
 const normalizar = (s: string) =>

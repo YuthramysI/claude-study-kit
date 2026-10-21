@@ -1,6 +1,6 @@
 {
   "name": "claude-study-kit",
-  "description": "Plugin de estudio para Claude Code: Pomodoro, tarjetas SM-2 y cuadernos de fuentes.",
+  "description": "Plugin de estudio para Claude Code: Pomodoro, tarjetas FSRS y cuadernos de fuentes. Español / English.",
   "owner": {
     "name": "Yuthramys Ibarra"
   },
@@ -8,7 +8,7 @@
     {
       "name": "estudio",
       "source": "./",
-      "description": "Pomodoro, tarjetas con repaso espaciado y cuadernos de fuentes al estilo NotebookLM, dentro de Claude Code."
+      "description": "Pomodoro, tarjetas con repaso espaciado (FSRS) y cuadernos de fuentes al estilo NotebookLM, dentro de Claude Code. Interfaz en español o inglés."
     }
   ]
 }

@@ -6,6 +6,8 @@ import type { Duraciones } from './pomodoro'
 export const PANEL = 'estudio'
 
 export type Config = {
+  /** «auto», «es» o «en»: se resuelve al arrancar con detectarIdioma */
+  idioma: string
   carpeta: string
   duraciones: Duraciones
   sonido: boolean
@@ -25,6 +27,7 @@ const numero = (v: unknown, defecto: number, min: number, max: number) =>
 
 export function config(options: PluginOptions): Config {
   return {
+    idioma: typeof options.idioma === 'string' ? options.idioma : 'auto',
     carpeta: typeof options.carpeta === 'string' && options.carpeta.trim() !== '' ? options.carpeta : '~/estudio',
     duraciones: {
       enfoque: numero(options.minutosEnfoque, 25, 1, 240),

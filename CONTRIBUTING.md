@@ -34,12 +34,13 @@ El módulo de hooks corre en un entorno propio, sin Node ni DOM. El validador ex
 
 ## Estilo
 
-- Código, interfaz y comentarios en español.
+- Código y comentarios en español.
+- Todo texto que vea el usuario va en los dos idiomas con `L('español', 'English')` de `hooks/i18n.ts`. En objetos constantes usa *getters* (`get nombre() { return L(…) }`) para que el texto se elija al usarlo, no al cargar el módulo. Las descripciones de herramientas y los prompts para el modelo pueden quedarse en español.
 - Funciones pequeñas y puras donde se pueda.
 - Mensajes claros para quien estudia: qué pasó y qué hacer.
 
 ## Ideas bienvenidas
 
-- Traducción de la interfaz a otros idiomas.
+- Más idiomas: hoy `L()` admite español e inglés; añadir un tercero empieza en `hooks/i18n.ts`.
 - Más formatos de importación (Quizlet, Markdown).
 - Un mapa mental visual en el panel.

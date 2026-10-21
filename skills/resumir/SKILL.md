@@ -1,10 +1,12 @@
 ---
 name: resumir
-description: Resume fuentes del cuaderno de estudio activo (las nuevas, o las que indique el usuario), guarda un resumen por fuente y crea tarjetas de cada una. Úsala cuando el usuario añada material nuevo o pida resumir un PDF, un tema o sus apuntes.
+description: Resume fuentes del cuaderno de estudio activo (las nuevas, o las que indique el usuario), guarda un resumen por fuente y crea tarjetas de cada una. Úsala cuando el usuario añada material nuevo o pida resumir un PDF, un tema o sus apuntes. EN: Summarize new (or chosen) sources and make flashcards from each one.
 argument-hint: "[archivo | archivo ...]"
 ---
 
 # Resumir fuentes
+
+> **Idioma / Language:** la respuesta de `mcp__estudio__cuaderno_activo` trae `idioma`. Si es `en`, responde al usuario y escribe todos los archivos **en inglés** (los títulos de las secciones también), aunque estas instrucciones estén en español. Si es `es`, en español. Las citas de las fuentes se dejan en su idioma original.
 
 Fuentes a resumir: $ARGUMENTS
 
